@@ -363,7 +363,7 @@ function Feedback({ q, result }: { q: Question; result: Result }) {
     box.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, []);
   return (
-    <div ref={box} className={`scroll-mb-28 space-y-2 rounded-2xl p-4 ${tone}`} role="status">
+    <div ref={box} className={`scroll-mb-48 space-y-2 rounded-2xl p-4 ${tone}`} role="status">
       <p className="flex items-center justify-between gap-2 text-xl font-extrabold">
         <span>
           {verdictIcon(v)} {t[v]}

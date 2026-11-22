@@ -22,7 +22,7 @@ const CoreQuestionSchema = z.object({
   instruction: z.string().describe("Short instruction in the FEEDBACK LANGUAGE, e.g. 'Completa la frase:' / 'Fill in the blank:'"),
   prompt: z
     .string()
-    .describe("The thing to answer, always in Spanish: a fill-in-the-blank with ___, a question, a short text, a sentence to read aloud. Empty string for listening."),
+    .describe("The thing to answer, always in Spanish: a fill-in-the-blank with ___, a question, a short text, a sentence to read aloud. Empty string for listening. With ___, the sentence must read correctly when the correct answer replaces ___ exactly (never repeat words that are already around the blank)."),
   spanish_audio: z
     .string()
     .describe("Spanish text the app reads aloud. Required for listening (the sentence to transcribe) and speaking (a model answer). Empty otherwise."),

@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { logout } from "@/app/login/actions";
 import { t } from "./strings";
 
 export default function Header({ active }: { active: "practice" | "history" }) {
@@ -20,7 +19,7 @@ export default function Header({ active }: { active: "practice" | "history" }) {
       <nav className="flex items-center gap-1">
         {link("/", t.practice, active === "practice")}
         {link("/historia", t.history, active === "history")}
-        <form action={logout}>
+        <form method="post" action="/api/logout">
           <button className="px-2 py-1 text-base text-muted underline">{t.logout}</button>
         </form>
       </nav>

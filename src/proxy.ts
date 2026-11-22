@@ -20,6 +20,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except the login page and static assets.
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico|icon.svg).*)"],
+  // Everything except the login page, the login/logout endpoints and static assets.
+  matcher: ["/((?!login|api/login|api/logout|_next/static|_next/image|favicon.ico|icon.svg).*)"],
 };

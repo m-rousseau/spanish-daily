@@ -4,8 +4,11 @@ import path from "node:path";
 import { log } from "./log";
 
 /**
- * Per-user JSON documents. On Netlify: Netlify Blobs (durable, shared across
- * devices). In local dev, where Blobs isn't available: files in ./.data.
+ * Per-user JSON documents.
+ * - On Netlify: Netlify Blobs, via direct requests to the Blobs edge using the
+ *   credentials Netlify provides at runtime (the @netlify/blobs client hangs
+ *   inside the Next.js runtime, so we talk to the edge ourselves).
+ * - In local dev: files in ./.data.
  */
 type Backend = {
   name: string;
@@ -13,23 +16,57 @@ type Backend = {
   set(key: string, value: unknown): Promise<void>;
 };
 
-const OP_TIMEOUT_MS = 8000;
+const STORE = "spanish-daily";
+const TIMEOUT_MS = 8000;
 
-function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${what} timed out after ${ms}ms`)), ms);
-    p.then(
-      (v) => {
-        clearTimeout(timer);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(timer);
-        reject(e);
-      },
-    );
-  });
+type BlobsContext = { edgeURL: string; siteID: string; token: string };
+
+function blobsContext(): BlobsContext | null {
+  const raw = process.env.NETLIFY_BLOBS_CONTEXT;
+  if (!raw) return null;
+  try {
+    const ctx = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+    return ctx.edgeURL && ctx.siteID && ctx.token ? ctx : null;
+  } catch {
+    return null;
+  }
 }
+
+// Next.js wraps global fetch for its data cache; use the original.
+const rawFetch: typeof fetch =
+  (globalThis as unknown as { _nextOriginalFetch?: typeof fetch })._nextOriginalFetch ?? fetch;
+
+function blobURL(ctx: BlobsContext, key: string) {
+  return new URL(`/${ctx.siteID}/site:${STORE}/${encodeURIComponent(key)}`, ctx.edgeURL);
+}
+
+const blobsBackend: Backend = {
+  name: "netlify-blobs",
+  async get(key) {
+    const ctx = blobsContext();
+    if (!ctx) throw new Error("Netlify Blobs context missing");
+    const res = await rawFetch(blobURL(ctx, key), {
+      headers: { authorization: `Bearer ${ctx.token}` },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Blobs read failed: ${res.status}`);
+    return res.json();
+  },
+  async set(key, value) {
+    const ctx = blobsContext();
+    if (!ctx) throw new Error("Netlify Blobs context missing");
+    const res = await rawFetch(blobURL(ctx, key), {
+      method: "PUT",
+      headers: { authorization: `Bearer ${ctx.token}`, "content-type": "application/json" },
+      body: JSON.stringify(value),
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (!res.ok) throw new Error(`Blobs write failed: ${res.status} ${(await res.text()).slice(0, 120)}`);
+  },
+};
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const fileBackend: Backend = {
@@ -49,92 +86,10 @@ const fileBackend: Backend = {
 
 const onNetlify = () => Boolean(process.env.NETLIFY || process.env.NETLIFY_BLOBS_CONTEXT || process.env.SITE_ID);
 
-let backend: Promise<Backend> | null = null;
-
-/** Field names and hosts in the Blobs context, for debugging. Never logs the token. */
-function describeContext() {
-  try {
-    const raw = process.env.NETLIFY_BLOBS_CONTEXT;
-    if (!raw) return null;
-    const ctx = JSON.parse(Buffer.from(raw, "base64").toString("utf8")) as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(ctx).map(([k, v]) => [
-        k,
-        k.toLowerCase().includes("token") ? `(${String(v).length} chars)` : typeof v === "string" && v.startsWith("http") ? new URL(v).host : String(v).slice(0, 40),
-      ]),
-    );
-  } catch (err) {
-    return { parseError: String(err) };
-  }
-}
-
-async function pickBackend(): Promise<Backend> {
-  log("store.pick", { onNetlify: onNetlify(), hasBlobsContext: Boolean(process.env.NETLIFY_BLOBS_CONTEXT), context: describeContext() });
-  try {
-    const { getStore } = await import("@netlify/blobs");
-    // Default (eventual) consistency: the browser keeps a timestamped copy and
-    // re-sends it if the server copy is ever older.
-    // Next.js wraps global fetch for its data cache; give Blobs the original, uncached fetch.
-    const g = globalThis as unknown as { _nextOriginalFetch?: typeof fetch };
-    const rawFetch: typeof fetch = g._nextOriginalFetch ?? globalThis.fetch;
-    const store = getStore({
-      name: "spanish-daily",
-      fetch: (input: RequestInfo | URL, init?: RequestInit) => rawFetch(input, { ...init, cache: "no-store" }),
-    });
-    await withTimeout(store.get("__probe__"), 4000, "blobs probe");
-    log("store.backend", { backend: "netlify-blobs" });
-    return {
-      name: "netlify-blobs",
-      get: (key) => store.get(key, { type: "json" }),
-      set: async (key, value) => {
-        await store.setJSON(key, value);
-      },
-    };
-  } catch (err) {
-    log(onNetlify() ? "store.backend.error" : "store.backend.local", {
-      message: err instanceof Error ? err.message : String(err),
-    });
-    if (onNetlify()) await diagnose();
-    if (onNetlify()) throw err; // never silently fall back to a disk that disappears on Netlify
-    log("store.backend", { backend: "file", dir: DATA_DIR });
-    return fileBackend;
-  }
-}
-
-/** One direct request to the Blobs edge, logging status and timing (never the token). */
-async function diagnose() {
-  try {
-    const raw = process.env.NETLIFY_BLOBS_CONTEXT;
-    if (!raw) return;
-    const ctx = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
-    const g = globalThis as unknown as { _nextOriginalFetch?: typeof fetch };
-    const f = g._nextOriginalFetch ?? fetch;
-    for (const path of [`/${ctx.siteID}/site:spanish-daily/__probe__`, `/region:${ctx.primaryRegion}/${ctx.siteID}/site:spanish-daily/__probe__`]) {
-      const started = Date.now();
-      try {
-        const res = await f(new URL(path, ctx.edgeURL), {
-          headers: { authorization: `Bearer ${ctx.token}` },
-          cache: "no-store",
-          signal: AbortSignal.timeout(4000),
-        });
-        log("store.diagnose", { path: path.replace(ctx.siteID, "SITE"), status: res.status, ms: Date.now() - started, body: (await res.text()).slice(0, 120) });
-      } catch (e) {
-        log("store.diagnose", { path: path.replace(ctx.siteID, "SITE"), error: String(e), ms: Date.now() - started });
-      }
-    }
-  } catch (e) {
-    log("store.diagnose.error", { error: String(e) });
-  }
-}
-
-async function getBackend(): Promise<Backend> {
-  backend ??= pickBackend();
-  try {
-    return await backend;
-  } catch (err) {
-    backend = null; // retry the connection on the next request
-    throw err;
-  }
+function backend(): Backend {
+  if (blobsContext()) return blobsBackend;
+  if (onNetlify()) throw new Error("Running on Netlify but no Blobs context is available");
+  return fileBackend; // never silently fall back to disk on Netlify, where it would vanish
 }
 
 export const DOCS = ["progress", "exam", "chat", "photos"] as const;
@@ -143,11 +98,16 @@ export type Doc = (typeof DOCS)[number];
 const userKey = (user: string, doc: Doc) => `user/${user.trim().toLowerCase()}/${doc}`;
 
 export async function readDoc(user: string, doc: Doc): Promise<unknown | null> {
-  const b = await getBackend();
-  return withTimeout(b.get(userKey(user, doc)), OP_TIMEOUT_MS, `${b.name} read`);
+  const b = backend();
+  const started = Date.now();
+  const data = await b.get(userKey(user, doc));
+  log("store.read", { backend: b.name, user, doc, found: data !== null, ms: Date.now() - started });
+  return data;
 }
 
 export async function writeDoc(user: string, doc: Doc, value: unknown): Promise<void> {
-  const b = await getBackend();
-  await withTimeout(b.set(userKey(user, doc), value), OP_TIMEOUT_MS, `${b.name} write`);
+  const b = backend();
+  const started = Date.now();
+  await b.set(userKey(user, doc), value);
+  log("store.write", { backend: b.name, user, doc, ms: Date.now() - started });
 }

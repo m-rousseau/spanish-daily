@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePhotos, type PhotoInfo } from "@/lib/usePhotos";
 import { useLang } from "./LangProvider";
 import Header from "./Header";
@@ -8,7 +8,7 @@ export default function Gallery({ name }: { name: string }) {
   const { t } = useLang();
   const { photos, configured, loading, error, isNew, markSeen } = usePhotos(name);
   const [open, setOpen] = useState<number | null>(null);
-  const [touchX, setTouchX] = useState<number | null>(null);
+  const touchX = useRef<number | null>(null);
   // Remember the newest "new" set for this visit, then mark them seen.
   const [newIds] = useState(() => new Set<string>());
 
@@ -83,13 +83,13 @@ export default function Gallery({ name }: { name: string }) {
           <div
             className="flex flex-1 items-center justify-center p-2"
             onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
+            onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
             onTouchEnd={(e) => {
-              if (touchX === null) return;
-              const dx = e.changedTouches[0].clientX - touchX;
+              if (touchX.current === null) return;
+              const dx = e.changedTouches[0].clientX - touchX.current;
               if (dx < -50) setOpen((i) => (i === null ? i : Math.min(i + 1, photos.length - 1)));
               if (dx > 50) setOpen((i) => (i === null ? i : Math.max(i - 1, 0)));
-              setTouchX(null);
+              touchX.current = null;
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- private images served by our own API */}

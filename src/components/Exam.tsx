@@ -68,7 +68,7 @@ export default function Exam({ name }: { name: string }) {
       loading.current.add(part);
       setFailedParts((f) => f.filter((p) => p !== part));
       try {
-        const avoid = cur.questions.flatMap((q) => (q ? [q.prompt || q.spanish_audio] : []));
+        const avoid = cur.questions.flatMap((q) => (q ? [(q.prompt || q.spanish_audio).slice(0, 200)] : []));
         const res = await fetch("/api/exam", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

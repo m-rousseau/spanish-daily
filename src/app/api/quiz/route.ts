@@ -4,7 +4,7 @@ import { describeError, generateQuiz } from "@/lib/claude";
 import { LANGS, TOPIC_IDS } from "@/lib/topics";
 import { log } from "@/lib/log";
 
-const str = z.string().max(300);
+const str = z.string().max(5000).transform((x) => x.slice(0, 300)); // trimmed: only used as hints to the model
 const Body = z.object({
   topic: z.enum(TOPIC_IDS),
   level: z.number().int().min(1).max(10).default(2),

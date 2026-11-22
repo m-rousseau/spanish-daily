@@ -8,7 +8,8 @@ const Body = z.object({
   level: z.number().int().min(1).max(10),
   lang: z.enum(LANGS).default("es"),
   part: z.number().int().min(0).max(EXAM_PARTS - 1),
-  avoid: z.array(z.string().max(300)).max(100).default([]),
+  // Earlier questions of this exam (to avoid repeats). Long reading passages are allowed and trimmed.
+  avoid: z.array(z.string().max(5000)).max(200).default([]).transform((a) => a.slice(-100).map((x) => x.slice(0, 200))),
 });
 
 /** One batch of the level exam. The browser asks for all parts in the background. */

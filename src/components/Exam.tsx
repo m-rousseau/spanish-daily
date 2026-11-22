@@ -37,6 +37,9 @@ export default function Exam({ name }: { name: string }) {
   // Next.js keeps visited pages alive in the background: clear the results screen
   // when she leaves, so coming back shows the next level's exam, not old results.
   useEffect(() => () => setOutcome(null), []);
+  useEffect(() => {
+    if (outcome) window.scrollTo({ top: 0 });
+  }, [outcome]);
   const loading = useRef(new Set<number>());
 
   const commit = useCallback(

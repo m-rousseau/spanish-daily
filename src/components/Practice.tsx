@@ -33,6 +33,7 @@ export default function Practice({ name, initialTopic }: { name: string; initial
   // a round in progress is kept so she can come back to it.
   const phaseRef = useRef<Phase>(phase);
   useEffect(() => {
+    if (phaseRef.current !== phase) window.scrollTo({ top: 0 });
     phaseRef.current = phase;
   }, [phase]);
   useEffect(

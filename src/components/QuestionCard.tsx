@@ -38,6 +38,10 @@ export default function QuestionCard({
   onNext: () => void;
 }) {
   const { t } = useLang();
+  // Each new question starts at the top (on a phone the last one left the page scrolled down).
+  useEffect(() => {
+    if (number > 1) window.scrollTo({ top: 0 });
+  }, [number]);
   const answered = result !== null;
 
   // Tell the tutor chat what's on screen.
@@ -377,10 +381,9 @@ function Feedback({ q, result }: { q: Question; result: Result }) {
       )}
       <p className="text-foreground">{result.grade.feedback}</p>
       {!choice && result.grade.corrected && q.type !== "geo" && (
-        <p className="flex items-center gap-2 text-foreground">
-          <span className="text-muted">{t.answer}</span>
-          <strong className="text-xl">{result.grade.corrected}</strong>
-          <button onClick={() => speak(result.grade.corrected)} aria-label={t.listen} className="text-xl">
+        <p className="text-foreground">
+          <span className="text-muted">{t.answer}</span> <strong className="text-xl">{result.grade.corrected}</strong>{" "}
+          <button onClick={() => speak(result.grade.corrected)} aria-label={t.listen} className="align-middle text-xl">
             🔊
           </button>
         </p>

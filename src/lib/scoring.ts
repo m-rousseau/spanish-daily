@@ -1,4 +1,5 @@
 import type { QuestionType, Verdict } from "./types";
+import type { Lang } from "./topics";
 
 /** Points for one answered question. */
 export function pointsFor(type: QuestionType, verdict: Verdict, geoParts?: [boolean, boolean]): number {
@@ -13,22 +14,26 @@ export function dailyBonus(streakDays: number): number {
   return 20 + Math.min(streakDays, 10) * 5;
 }
 
-export const LEVELS = [
-  { min: 0, name: "Principiante", emoji: "🌱" },
-  { min: 150, name: "Aprendiz", emoji: "📗" },
-  { min: 400, name: "Explorador", emoji: "🧭" },
-  { min: 800, name: "Viajero", emoji: "✈️" },
-  { min: 1500, name: "Conversador", emoji: "💬" },
-  { min: 2500, name: "Experto", emoji: "⭐" },
-  { min: 4000, name: "Maestro", emoji: "🏆" },
-  { min: 6000, name: "Leyenda", emoji: "👑" },
+/** Bonus for passing a level exam. */
+export const GRADUATION_BONUS = 300;
+
+/** Points ranks (separate from the 1-10 difficulty levels). */
+export const RANKS: { min: number; name: Record<Lang, string>; emoji: string }[] = [
+  { min: 0, name: { es: "Principiante", en: "Newcomer" }, emoji: "🌱" },
+  { min: 150, name: { es: "Aprendiz", en: "Apprentice" }, emoji: "📗" },
+  { min: 400, name: { es: "Explorador", en: "Explorer" }, emoji: "🧭" },
+  { min: 800, name: { es: "Viajero", en: "Traveler" }, emoji: "✈️" },
+  { min: 1500, name: { es: "Conversador", en: "Conversationalist" }, emoji: "💬" },
+  { min: 2500, name: { es: "Experto", en: "Expert" }, emoji: "⭐" },
+  { min: 4000, name: { es: "Maestro", en: "Master" }, emoji: "🏆" },
+  { min: 6000, name: { es: "Leyenda", en: "Legend" }, emoji: "👑" },
 ];
 
-export function levelFor(points: number) {
+export function rankFor(points: number) {
   let i = 0;
-  while (i + 1 < LEVELS.length && points >= LEVELS[i + 1].min) i++;
-  const current = LEVELS[i];
-  const next = LEVELS[i + 1];
+  while (i + 1 < RANKS.length && points >= RANKS[i + 1].min) i++;
+  const current = RANKS[i];
+  const next = RANKS[i + 1];
   const pct = next ? Math.round(((points - current.min) / (next.min - current.min)) * 100) : 100;
   return { ...current, next, pct };
 }

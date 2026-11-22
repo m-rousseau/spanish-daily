@@ -4,14 +4,17 @@ import type { TopicId } from "@/lib/topics";
 
 const Splash = () => <main className="flex flex-1 items-center justify-center text-4xl">🌞</main>;
 
-// These screens read localStorage and browser speech APIs, so render them only in the browser.
-const Practice = dynamic(() => import("./Practice"), { ssr: false, loading: Splash });
-const History = dynamic(() => import("./History"), { ssr: false, loading: Splash });
+// The app reads localStorage and browser speech APIs, so it renders only in the browser.
+const ClientApp = dynamic(() => import("./ClientApp"), { ssr: false, loading: Splash });
 
 export function PracticeLoader({ name, initialTopic }: { name: string; initialTopic?: TopicId }) {
-  return <Practice name={name} initialTopic={initialTopic} />;
+  return <ClientApp page="practice" name={name} initialTopic={initialTopic} />;
 }
 
 export function HistoryLoader({ name }: { name: string }) {
-  return <History name={name} />;
+  return <ClientApp page="history" name={name} />;
+}
+
+export function ExamLoader({ name }: { name: string }) {
+  return <ClientApp page="exam" name={name} />;
 }

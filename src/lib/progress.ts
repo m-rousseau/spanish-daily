@@ -1,10 +1,14 @@
-"use client";
-// Progress lives in this browser's localStorage (one copy per device).
+// Progress model and the pure functions that update it. Persistence lives in sync.ts.
 import type { QuestionType, Verdict } from "./types";
+import { DAYS_TO_GRADUATE, EXAM_PASS } from "./topics";
+import { dailyBonus, GRADUATION_BONUS } from "./scoring";
+import { newBadges } from "./badges";
 
 export type HistoryEntry = {
   ts: number;
   date: string; // local YYYY-MM-DD
+  level?: number;
+  exam?: boolean;
   topic: string;
   type: QuestionType;
   skill: string;
@@ -18,42 +22,56 @@ export type HistoryEntry = {
   link?: string; // news article
 };
 
+export type LevelStat = { days: string[]; answered: number; correct: number };
+export type Graduation = { level: number; date: string; score: number; passed: boolean };
+
 export type Progress = {
-  days: string[]; // dates practiced, YYYY-MM-DD
+  updatedAt: number;
+  days: string[]; // every date practiced, YYYY-MM-DD
   points: number;
   bestStreak: number;
+  level: number; // current difficulty level, 1-10
+  levels: Record<string, LevelStat>; // per level: practice days and answers
+  exams: Graduation[]; // every exam attempt
+  badges: string[];
   history: HistoryEntry[];
 };
 
-const MAX_HISTORY = 4000; // ~a year and a half of daily rounds; keeps localStorage well under its limit
-const key = (name: string) => `sd_progress_v2:${name.toLowerCase()}`;
-const empty = (): Progress => ({ days: [], points: 0, bestStreak: 0, history: [] });
+export const DEFAULT_LEVEL = 2; // first university semester
+const MAX_HISTORY = 3000;
+
+export const emptyProgress = (): Progress => ({
+  updatedAt: 0,
+  days: [],
+  points: 0,
+  bestStreak: 0,
+  level: DEFAULT_LEVEL,
+  levels: {},
+  exams: [],
+  badges: [],
+  history: [],
+});
+
+/** Fills in fields missing from older saved versions; drops anything malformed. */
+export function normalizeProgress(raw: unknown): Progress {
+  const p = { ...emptyProgress(), ...(raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Partial<Progress>) : {}) };
+  p.days = Array.isArray(p.days) ? p.days.filter((d) => typeof d === "string") : [];
+  p.history = Array.isArray(p.history) ? p.history.filter((e) => e && typeof e === "object" && typeof e.prompt === "string") : [];
+  p.exams = Array.isArray(p.exams) ? p.exams.filter((e) => e && typeof e === "object") : [];
+  p.badges = Array.isArray(p.badges) ? p.badges.filter((b) => typeof b === "string") : [];
+  p.levels = p.levels && typeof p.levels === "object" && !Array.isArray(p.levels) ? p.levels : {};
+  p.level = Number.isFinite(p.level) ? Math.min(Math.max(Math.round(p.level), 1), 10) : DEFAULT_LEVEL;
+  p.points = Number.isFinite(p.points) ? p.points : 0;
+  p.bestStreak = Number.isFinite(p.bestStreak) ? p.bestStreak : 0;
+  p.updatedAt = Number.isFinite(p.updatedAt) ? p.updatedAt : 0;
+  return p;
+}
 
 export function today(d = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-export function loadProgress(name: string): Progress {
-  try {
-    const raw = localStorage.getItem(key(name));
-    if (raw) return { ...empty(), ...JSON.parse(raw) };
-    // Carry practiced days over from the first version of the app.
-    const v1 = localStorage.getItem(`sd_progress_v1:${name.toLowerCase()}`);
-    if (v1) {
-      const days: string[] = JSON.parse(v1).days ?? [];
-      return { ...empty(), days, bestStreak: longestStreak(days) };
-    }
-  } catch {}
-  return empty();
-}
-
-function save(name: string, p: Progress) {
-  try {
-    localStorage.setItem(key(name), JSON.stringify(p));
-  } catch {}
 }
 
 /** Current run of consecutive days, counting today if done, else up to yesterday. */
@@ -86,24 +104,77 @@ export function longestStreak(days: string[]): number {
   return best;
 }
 
-/** Saves a finished round. Returns the new progress and any daily bonus awarded. */
-export function recordRound(
-  name: string,
-  entries: Omit<HistoryEntry, "ts" | "date">[],
-  bonusFor: (streakDays: number) => number,
-): { progress: Progress; bonus: number } {
-  const p = loadProgress(name);
+export const levelStat = (p: Progress, level: number): LevelStat =>
+  p.levels[String(level)] ?? { days: [], answered: 0, correct: 0 };
+
+export const hasGraduated = (p: Progress, level: number) => p.exams.some((e) => e.level === level && e.passed);
+
+/** The exam is offered automatically after DAYS_TO_GRADUATE distinct practice days at the level. */
+export const examReady = (p: Progress, level: number) =>
+  levelStat(p, level).days.length >= DAYS_TO_GRADUATE && !hasGraduated(p, level);
+
+type NewEntry = Omit<HistoryEntry, "ts" | "date" | "level">;
+
+export type RoundOutcome = { progress: Progress; bonus: number; levelDay: number | null; badges: string[] };
+
+/**
+ * Adds a finished practice round. Only distinct days count toward graduation:
+ * extra rounds on the same day add points and history, not days.
+ */
+export function recordRound(prev: Progress, entries: NewEntry[], opts: { perfect: boolean }): RoundOutcome {
+  const p = structuredClone(prev);
   const t = today();
+  const level = p.level;
   const firstToday = !p.days.includes(t);
-  if (firstToday) p.days = [...p.days, t];
+  if (firstToday) p.days.push(t);
+
+  const stat = levelStat(p, level);
+  let levelDay: number | null = null;
+  if (!stat.days.includes(t)) {
+    stat.days = [...stat.days, t];
+    levelDay = stat.days.length;
+  }
+  stat.answered += entries.length;
+  stat.correct += entries.filter((e) => e.verdict === "correct").length;
+  p.levels[String(level)] = stat;
+
   const s = streak(p.days);
-  const bonus = firstToday ? bonusFor(s) : 0;
+  const bonus = firstToday ? dailyBonus(s) : 0;
   const now = Date.now();
-  p.history = [...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t }))].slice(-MAX_HISTORY);
+  p.history = [...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t, level }))].slice(-MAX_HISTORY);
   p.points += entries.reduce((sum, e) => sum + e.points, 0) + bonus;
   p.bestStreak = Math.max(p.bestStreak, s, longestStreak(p.days));
-  save(name, p);
-  return { progress: p, bonus };
+  const earned = newBadges(p, { perfectRound: opts.perfect });
+  p.badges = [...p.badges, ...earned];
+  p.updatedAt = now;
+  return { progress: p, bonus, levelDay, badges: earned };
+}
+
+export type ExamOutcome = { progress: Progress; score: number; passed: boolean; bonus: number; badges: string[] };
+
+/** Records a finished exam. Passing moves her up one level (if she's still on that level). */
+export function recordExam(prev: Progress, level: number, entries: NewEntry[]): ExamOutcome {
+  const p = structuredClone(prev);
+  const t = today();
+  const scoreSum = entries.reduce((s, e) => s + (e.verdict === "correct" ? 1 : e.verdict === "almost" ? 0.5 : 0), 0);
+  const score = entries.length ? scoreSum / entries.length : 0;
+  const passed = score >= EXAM_PASS;
+  const bonus = passed ? GRADUATION_BONUS : 0;
+  const now = Date.now();
+  p.history = [...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t, level, exam: true }))].slice(
+    -MAX_HISTORY,
+  );
+  p.points += entries.reduce((sum, e) => sum + e.points, 0) + bonus;
+  p.exams = [...p.exams, { level, date: t, score: Math.round(score * 100), passed }];
+  if (passed && p.level === level && level < 10) p.level = level + 1;
+  const earned = newBadges(p, { perfectRound: false });
+  p.badges = [...p.badges, ...earned];
+  p.updatedAt = now;
+  return { progress: p, score, passed, bonus, badges: earned };
+}
+
+export function setLevel(prev: Progress, level: number): Progress {
+  return { ...prev, level: Math.min(Math.max(Math.round(level), 1), 10), updatedAt: Date.now() };
 }
 
 const isFun = (e: HistoryEntry) => e.type === "geo" || e.type === "news";

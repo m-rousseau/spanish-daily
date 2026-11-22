@@ -3,19 +3,22 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Question } from "@/lib/types";
-import { TOPICS, type TopicId } from "@/lib/topics";
-import { dailyBonus } from "@/lib/scoring";
-import { loadProgress, quizContext, recordRound, today, weakSkills, type Progress } from "@/lib/progress";
+import { DAYS_TO_GRADUATE, TOPICS, type TopicId } from "@/lib/topics";
+import { quizContext, recordRound, setLevel, today, weakSkills, type RoundOutcome } from "@/lib/progress";
+import { badgeById } from "@/lib/badges";
+import { useAppProgress } from "./AppShell";
+import { useLang } from "./LangProvider";
 import Header from "./Header";
 import Tracker from "./Tracker";
+import LevelCard from "./LevelCard";
 import QuestionCard, { verdictIcon, type Result } from "./QuestionCard";
-import { t } from "./strings";
 
 type Phase = "home" | "loading" | "quiz" | "done";
 
-// Rendered client-only (see PracticeLoader), so localStorage is safe in initializers.
 export default function Practice({ name, initialTopic }: { name: string; initialTopic?: TopicId }) {
   const router = useRouter();
+  const { t, lang } = useLang();
+  const { progress, update } = useAppProgress();
   const [topic, setTopic] = useState<TopicId>(initialTopic ?? "mix");
   const [focus, setFocus] = useState("");
   const [phase, setPhase] = useState<Phase>("home");
@@ -23,8 +26,7 @@ export default function Practice({ name, initialTopic }: { name: string; initial
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<(Result | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<Progress>(() => loadProgress(name));
-  const [bonus, setBonus] = useState(0);
+  const [outcome, setOutcome] = useState<RoundOutcome | null>(null);
 
   async function start(topicOverride?: TopicId) {
     const chosen = topicOverride ?? topic;
@@ -35,7 +37,7 @@ export default function Practice({ name, initialTopic }: { name: string; initial
       const res = await fetch("/api/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: chosen, focus: focus.trim(), ...quizContext(loadProgress(name)) }),
+        body: JSON.stringify({ topic: chosen, level: progress.level, lang, focus: focus.trim(), ...quizContext(progress) }),
       });
       if (res.status === 401) return router.push("/login");
       const data = await res.json();
@@ -46,37 +48,36 @@ export default function Practice({ name, initialTopic }: { name: string; initial
       setPhase("quiz");
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Error");
-      setPhase("home");
+      setPhase(phase === "done" ? "done" : "home");
     }
   }
 
   function finish() {
-    const label = TOPICS.find((x) => x.id === topic)?.label ?? topic;
-    const { progress: p, bonus: b } = recordRound(
-      name,
-      questions.flatMap((q, i) => {
-        const r = results[i];
-        if (!r) return [];
-        return [
-          {
-            topic: label,
-            type: q.type,
-            skill: q.skill,
-            instruction: q.instruction,
-            prompt: q.type === "geo" ? "🌎 ¿Dónde está y por qué es famoso?" : q.prompt || q.spanish_audio,
-            answer: r.answer,
-            expected: r.grade.corrected || q.expected_answer,
-            verdict: r.grade.verdict,
-            points: r.points,
-            feedback: r.grade.feedback,
-            link: q.news?.url,
-          },
-        ];
-      }),
-      dailyBonus,
-    );
-    setProgress(p);
-    setBonus(b);
+    const label = TOPICS.find((x) => x.id === topic)?.label.es ?? topic;
+    const entries = questions.flatMap((q, i) => {
+      const r = results[i];
+      if (!r) return [];
+      return [
+        {
+          topic: label,
+          type: q.type,
+          skill: q.skill,
+          instruction: q.instruction,
+          prompt: q.type === "geo" ? `🌎 ${q.geo?.place ?? ""}: ¿dónde está y por qué es famoso?` : q.prompt || q.spanish_audio,
+          answer: r.answer,
+          expected: r.grade.corrected || q.expected_answer,
+          verdict: r.grade.verdict,
+          points: r.points,
+          feedback: r.grade.feedback,
+          link: q.news?.url,
+        },
+      ];
+    });
+    const out = recordRound(progress, entries, {
+      perfect: entries.length > 0 && entries.every((e) => e.verdict === "correct"),
+    });
+    update(out.progress);
+    setOutcome(out);
     setPhase("done");
   }
 
@@ -86,8 +87,15 @@ export default function Practice({ name, initialTopic }: { name: string; initial
   const roundPoints = results.reduce((s, r) => s + (r?.points ?? 0), 0);
   const good = questions.length > 0 && correctCount / questions.length >= 0.6;
 
+  const moreButton = (
+    <button onClick={() => start()} className="btn-primary w-full flex-col gap-0 text-xl" data-testid="more">
+      {t.more}
+      <span className="text-sm font-semibold opacity-90">{t.moreHint}</span>
+    </button>
+  );
+
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
+    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-28">
       <Header active="practice" />
 
       {phase === "home" && (
@@ -96,12 +104,11 @@ export default function Practice({ name, initialTopic }: { name: string; initial
             <h1 className="text-3xl font-extrabold">
               {t.hello}, {name}!
             </h1>
-            <p className={`mt-1 ${practicedToday ? "text-good" : "text-muted"}`}>
-              {practicedToday ? t.doneToday : t.notToday}
-            </p>
+            <p className={`mt-1 ${practicedToday ? "text-good" : "text-muted"}`}>{practicedToday ? t.doneToday : t.notToday}</p>
           </div>
 
           <Tracker progress={progress} />
+          <LevelCard progress={progress} onSetLevel={(n) => update(setLevel(progress, n))} />
 
           <div>
             <h2 className="mb-3 text-xl font-bold">{t.pick}</h2>
@@ -116,7 +123,7 @@ export default function Practice({ name, initialTopic }: { name: string; initial
                   } ${tp.id === "weak" ? "col-span-2 sm:col-span-3" : ""}`}
                 >
                   <div className="text-3xl">{tp.emoji}</div>
-                  <div className="mt-1 font-bold leading-tight">{tp.label}</div>
+                  <div className="mt-1 font-bold leading-tight">{tp.label[lang]}</div>
                 </button>
               ))}
             </div>
@@ -138,8 +145,8 @@ export default function Practice({ name, initialTopic }: { name: string; initial
               {error}
             </p>
           )}
-          <button onClick={() => start()} className="btn-primary w-full text-xl">
-            {t.start} →
+          <button onClick={() => start()} className="btn-primary w-full text-xl" data-testid="start">
+            {practicedToday ? t.more : `${t.start} →`}
           </button>
         </section>
       )}
@@ -158,21 +165,43 @@ export default function Practice({ name, initialTopic }: { name: string; initial
           q={questions[index]}
           number={index + 1}
           total={questions.length}
+          level={progress.level}
+          context={lang === "en" ? `Practice (level ${progress.level})` : `Práctica (nivel ${progress.level})`}
           result={results[index]}
           onResult={(r) => setResults((prev) => prev.map((x, i) => (i === index ? r : x)))}
           onNext={() => (index + 1 < questions.length ? setIndex(index + 1) : finish())}
         />
       )}
 
-      {phase === "done" && (
+      {phase === "done" && outcome && (
         <section className="space-y-4">
           <div className="card space-y-3 text-center">
             <div className="text-6xl">{good ? "🎉" : "💪"}</div>
             <h2 className="text-3xl font-extrabold">{good ? t.results : t.effort}</h2>
             <p className="text-2xl">{t.score(correctCount, questions.length)}</p>
             <p className="text-xl font-bold text-good">{t.roundPoints(roundPoints)}</p>
-            {bonus > 0 && <p className="text-lg font-bold text-accent">{t.dailyBonus(bonus)}</p>}
+            {outcome.bonus > 0 && <p className="text-lg font-bold text-accent">{t.dailyBonus(outcome.bonus)}</p>}
+            {outcome.levelDay !== null && (
+              <p className="text-lg font-bold" data-testid="level-day">
+                {t.dayCounted(Math.min(outcome.levelDay, DAYS_TO_GRADUATE), DAYS_TO_GRADUATE)}
+              </p>
+            )}
+            {outcome.badges.map((id) => {
+              const b = badgeById(id);
+              return b ? (
+                <p key={id} className="rounded-2xl bg-warn-soft p-2 text-lg font-bold text-warn">
+                  {t.badgeNew(`${b.emoji} ${b.name[lang]}`)}
+                </p>
+              ) : null;
+            })}
           </div>
+
+          {error && (
+            <p className="rounded-2xl bg-bad-soft p-4 text-bad" role="alert">
+              {error}
+            </p>
+          )}
+          {moreButton}
 
           <Tracker progress={progress} />
 
@@ -194,10 +223,6 @@ export default function Practice({ name, initialTopic }: { name: string; initial
           </ul>
 
           <div className="grid gap-3">
-            <button onClick={() => start()} className="btn-primary w-full flex-col gap-0 text-xl">
-              🔄 {t.again}
-              <span className="text-sm font-semibold opacity-90">{t.againHint}</span>
-            </button>
             {hasWeak && (
               <button onClick={() => start("weak")} className="btn-ghost w-full">
                 🎯 {t.weakBtn}

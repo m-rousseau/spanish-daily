@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import type { Grade, Question, Verdict } from "@/lib/types";
 import { pointsFor } from "@/lib/scoring";
 import { canListen, canSpeak, listen, speak } from "@/lib/speech";
-import { t } from "./strings";
+import { useLang } from "./LangProvider";
+import { setScreen } from "@/lib/screen";
 
 const GeoMap = dynamic(() => import("./GeoMap"), {
   ssr: false,
@@ -21,6 +22,8 @@ export default function QuestionCard({
   q,
   number,
   total,
+  level,
+  context,
   result,
   onResult,
   onNext,
@@ -28,11 +31,20 @@ export default function QuestionCard({
   q: Question;
   number: number;
   total: number;
+  level: number;
+  context: string; // e.g. "Práctica" or "Examen nivel 2", for the tutor
   result: Result | null;
   onResult: (r: Result) => void;
   onNext: () => void;
 }) {
+  const { t } = useLang();
   const answered = result !== null;
+
+  // Tell the tutor chat what's on screen.
+  useEffect(() => {
+    setScreen({ label: `${context} · ${number}/${total}`, text: describeForTutor(q, result) });
+  }, [q, result, number, total, context]);
+  useEffect(() => () => setScreen(null), []);
   const fun = q.type === "geo" || q.type === "news";
 
   return (
@@ -54,7 +66,7 @@ export default function QuestionCard({
         ) : q.type === "multiple_choice" || q.type === "news" ? (
           <ChoiceBody q={q} result={result} onResult={onResult} />
         ) : (
-          <FreeBody q={q} result={result} onResult={onResult} />
+          <FreeBody q={q} level={level} result={result} onResult={onResult} />
         )}
       </div>
 
@@ -105,6 +117,23 @@ function Choices({
 }
 
 type BodyProps = { q: Question; result: Result | null; onResult: (r: Result) => void };
+
+function describeForTutor(q: Question, result: Result | null): string {
+  const lines = [
+    `Type: ${q.type}; skill: ${q.skill}`,
+    `Instruction: ${q.instruction}`,
+    q.prompt ? `Prompt: ${q.prompt}` : "",
+    q.type === "listening" ? `Audio she hears: ${q.spanish_audio}` : "",
+    q.choices.length ? `Choices: ${q.choices.map((c, i) => `${i + 1}) ${c}`).join("  ")}` : "",
+    q.geo ? `Place shown on the satellite map: ${q.geo.place}, ${q.geo.country}. Second part: ${q.geo.known_for_prompt} ${q.geo.known_for_choices.join(" / ")}` : "",
+    q.news ? `Based on the headline: ${q.news.title} (${q.news.source})` : "",
+    `Correct answer: ${q.expected_answer}`,
+    result
+      ? `She answered: «${result.answer}» → ${result.grade.verdict}. Feedback shown: ${result.grade.feedback}`
+      : "She has NOT answered yet.",
+  ];
+  return lines.filter(Boolean).join("\n");
+}
 
 function ChoiceBody({ q, result, onResult }: BodyProps) {
   const picked = result ? q.choices.indexOf(result.answer) : null;
@@ -164,7 +193,8 @@ function GeoBody({ q, result, onResult }: BodyProps) {
   );
 }
 
-function FreeBody({ q, result, onResult }: BodyProps) {
+function FreeBody({ q, level, result, onResult }: BodyProps & { level: number }) {
+  const { t, lang } = useLang();
   const [answer, setAnswer] = useState("");
   const [showHint, setShowHint] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -190,6 +220,8 @@ function FreeBody({ q, result, onResult }: BodyProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          level,
+          lang,
           question: {
             type: q.type,
             instruction: q.instruction,
@@ -302,6 +334,7 @@ function FreeBody({ q, result, onResult }: BodyProps) {
 }
 
 function Feedback({ q, result }: { q: Question; result: Result }) {
+  const { t } = useLang();
   const v = result.grade.verdict;
   const tone = v === "correct" ? "bg-good-soft text-good" : v === "almost" ? "bg-warn-soft text-warn" : "bg-bad-soft text-bad";
   const choice = q.type === "multiple_choice" || q.type === "news";

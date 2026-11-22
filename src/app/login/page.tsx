@@ -1,8 +1,18 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { LangProvider, LangToggle, useLang } from "@/components/LangProvider";
 
 export default function LoginPage() {
+  return (
+    <LangProvider>
+      <LoginForm />
+    </LangProvider>
+  );
+}
+
+function LoginForm() {
+  const { t } = useLang();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -24,9 +34,9 @@ export default function LoginPage() {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Algo salió mal. Inténtalo otra vez.");
+      setError(data.error ?? t.loginError);
     } catch {
-      setError("Sin conexión. Inténtalo otra vez.");
+      setError(t.loginOffline);
     }
     setPending(false);
   }
@@ -34,17 +44,20 @@ export default function LoginPage() {
   return (
     <main className="flex flex-1 items-center justify-center p-4">
       <form onSubmit={onSubmit} className="card w-full max-w-sm space-y-5">
+        <div className="flex justify-end">
+          <LangToggle />
+        </div>
         <div className="text-center">
           <div className="text-5xl">🌞</div>
           <h1 className="mt-2 text-3xl font-bold">¡Buenos días!</h1>
-          <p className="mt-1 text-muted">Español diario · 5 minutos al día</p>
+          <p className="mt-1 text-muted">{t.loginSubtitle}</p>
         </div>
         <label className="block">
-          <span className="label">Nombre</span>
+          <span className="label">{t.loginName}</span>
           <input name="name" autoComplete="username" autoCapitalize="none" required className="input" />
         </label>
         <label className="block">
-          <span className="label">Contraseña</span>
+          <span className="label">{t.loginPassword}</span>
           <input name="password" type="password" autoComplete="current-password" required className="input" />
         </label>
         {error && (
@@ -53,7 +66,7 @@ export default function LoginPage() {
           </p>
         )}
         <button disabled={pending} className="btn-primary w-full">
-          {pending ? "…" : "Entrar"}
+          {pending ? "…" : t.loginButton}
         </button>
       </form>
     </main>

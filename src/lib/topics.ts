@@ -78,14 +78,14 @@ export const LEVELS: LevelInfo[] = [
     n: 6, cefr: "B1",
     name: { es: "Intermedio", en: "Intermediate" },
     summary: { es: "Perfecto, condicional, imperativo y el subjuntivo básico.", en: "Present perfect, conditional, commands and basic subjunctive." },
-    scope: "Everything before, plus: present perfect (he comido); conditional (me gustaría); affirmative and negative commands; present subjunctive after wishes and recommendations (quiero que, es importante que); relative clauses (que, donde, lo que).",
+    scope: "Everything before, plus: present perfect (he comido); conditional only for polite requests, wishes and advice (me gustaría, ¿podrías...?, deberías); affirmative and negative commands; present subjunctive after wishes and recommendations (quiero que, es importante que); relative clauses (que, donde, lo que). Not yet: «si» clauses with the imperfect subjunctive (si pudiera / si tuviera), which belong to level 8.",
     style: "Natural everyday Spanish at intermediate level.",
   },
   {
     n: 7, cefr: "B1+",
     name: { es: "Intermedio alto", en: "Upper intermediate" },
     summary: { es: "Subjuntivo con duda y emoción, pluscuamperfecto, conectores.", en: "Subjunctive of doubt and emotion, pluperfect, connectors." },
-    scope: "Everything before, plus: subjunctive with doubt, emotion and conjunctions (cuando + subjunctive, para que, aunque); pluperfect; reported speech basics; common idioms; opinions and arguments.",
+    scope: "Everything before, plus: subjunctive with doubt, emotion and conjunctions (cuando + subjunctive, para que, aunque); pluperfect; reported speech basics; common idioms; opinions and arguments. Not yet: the imperfect subjunctive and «si» clauses (level 8).",
     style: "Natural Spanish with some complex sentences.",
   },
   {

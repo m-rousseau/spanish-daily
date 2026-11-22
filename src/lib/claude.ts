@@ -18,7 +18,7 @@ const client = new Anthropic({ apiKey: apiKey() });
 
 const CoreQuestionSchema = z.object({
   type: z.enum(["multiple_choice", "open_text", "speaking", "listening"]),
-  skill: z.string().describe("The one skill this question practices, copied exactly from the SKILLS list."),
+  skill: z.enum(SKILLS as unknown as [string, ...string[]]).describe("The one skill this question practices."),
   instruction: z.string().describe("Short instruction in the FEEDBACK LANGUAGE, e.g. 'Completa la frase:' / 'Fill in the blank:'"),
   prompt: z
     .string()
@@ -79,7 +79,7 @@ function system(level: number, lang: Lang) {
 
 Her current level: ${L.n} of 10 (${L.cefr}, "${L.name.en}"). Level 1 is first steps, level 10 is fluent.
 What this level covers: ${L.scope}
-Make content that fits this level: not easier, not harder. Use Latin American or neutral Spanish and accept Spain variants as correct.
+Make content that fits this level: not easier, not harder. Use only grammar and vocabulary from this level and the levels below it (never structures from higher levels). Use Latin American or neutral Spanish and accept Spain variants as correct.
 
 FEEDBACK LANGUAGE: ${feedbackLanguage}
 Keep everything short and practical.`;
@@ -169,7 +169,7 @@ Question types, easiest first: ${mix}.
 
 ${TYPE_RULES}
 
-Tag each question's skill with exactly one label from this list: ${JSON.stringify(SKILLS)}
+Tag each question with the one skill it practices.
 
 Avoid repeating these recent prompts: ${JSON.stringify(req.recentPrompts.slice(-25))}
 ${req.recentMistakes.length ? `Her recent mistakes${topic.id === "weak" ? "" : " (work 1-2 back in, in a new form)"}: ${JSON.stringify(req.recentMistakes.slice(-10))}` : ""}
@@ -312,7 +312,7 @@ Questions should test the whole level fairly, as a real end-of-level exam: mostl
 
 ${TYPE_RULES}
 
-Tag each question's skill with exactly one label from this list: ${JSON.stringify(SKILLS)}
+Tag each question with the one skill it practices.
 Do not repeat any of these questions already in the exam: ${JSON.stringify(opts.avoid.slice(-60))}`;
   const { questions } = await ask(
     QuizSchema,

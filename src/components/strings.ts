@@ -122,7 +122,7 @@ const es = {
   filterFun: "Diversión",
   filterExams: "Exámenes",
   empty: "Todavía no hay preguntas. ¡Haz tu primera práctica!",
-  moreDays: "Ver más días",
+  moreDays: "Ver más",
   weekdays: ["D", "L", "M", "X", "J", "V", "S"], // Sunday first, matching Date.getDay()
   weekdaysMon: ["L", "M", "X", "J", "V", "S", "D"],
   dateLocale: "es",
@@ -265,7 +265,7 @@ const en: Strings = {
   filterFun: "Fun",
   filterExams: "Exams",
   empty: "No questions yet. Do your first practice!",
-  moreDays: "Show more days",
+  moreDays: "Show more",
   weekdays: ["S", "M", "T", "W", "T", "F", "S"],
   weekdaysMon: ["M", "T", "W", "T", "F", "S", "S"],
   dateLocale: "en",

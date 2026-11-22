@@ -11,7 +11,7 @@ import Header from "./Header";
 import { verdictIcon } from "./QuestionCard";
 
 type Filter = "all" | "mistakes" | "fun" | "exams";
-const DAYS_PER_PAGE = 10;
+const ENTRIES_PER_PAGE = 50; // keeps the page light on phones, even on exam days (100+ entries)
 
 export default function History() {
   const { t, lang } = useLang();
@@ -36,9 +36,13 @@ export default function History() {
           ? e.exam
           : true,
   );
+  const newestFirst = [...filtered].reverse();
+  const shown = newestFirst.slice(0, pages * ENTRIES_PER_PAGE);
   const byDate = new Map<string, HistoryEntry[]>();
-  for (const e of [...filtered].reverse()) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
+  for (const e of shown) byDate.set(e.date, [...(byDate.get(e.date) ?? []), e]);
   const dates = [...byDate.keys()];
+  const dayPoints = new Map<string, number>();
+  for (const e of filtered) dayPoints.set(e.date, (dayPoints.get(e.date) ?? 0) + e.points);
 
   const formatDate = (date: string) => {
     const [y, m, d] = date.split("-").map(Number);
@@ -193,14 +197,14 @@ export default function History() {
         <p className="card text-center text-muted">{t.empty}</p>
       ) : (
         <div className="space-y-5">
-          {dates.slice(0, pages * DAYS_PER_PAGE).map((date) => {
+          {dates.map((date) => {
             const entries = byDate.get(date)!;
             return (
               <section key={date}>
                 <h3 className="mb-2 flex justify-between text-lg font-bold">
                   <span className="first-letter:uppercase">{formatDate(date)}</span>
                   <span className="text-base text-muted">
-                    +{entries.reduce((s, e) => s + e.points, 0)} {t.points}
+                    +{dayPoints.get(date) ?? 0} {t.points}
                   </span>
                 </h3>
                 <ul className="space-y-2">
@@ -211,9 +215,9 @@ export default function History() {
               </section>
             );
           })}
-          {dates.length > pages * DAYS_PER_PAGE && (
+          {newestFirst.length > shown.length && (
             <button onClick={() => setPages(pages + 1)} className="btn-ghost w-full">
-              {t.moreDays}
+              {t.moreDays} ({newestFirst.length - shown.length})
             </button>
           )}
         </div>

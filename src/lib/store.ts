@@ -19,7 +19,7 @@ type Backend = {
 const STORE = "spanish-daily";
 const TIMEOUT_MS = 8000;
 
-type BlobsContext = { edgeURL: string; siteID: string; token: string };
+type BlobsContext = { edgeURL: string; uncachedEdgeURL?: string; siteID: string; token: string };
 
 function blobsContext(): BlobsContext | null {
   const raw = process.env.NETLIFY_BLOBS_CONTEXT;
@@ -36,8 +36,10 @@ function blobsContext(): BlobsContext | null {
 const rawFetch: typeof fetch =
   (globalThis as unknown as { _nextOriginalFetch?: typeof fetch })._nextOriginalFetch ?? fetch;
 
-function blobURL(ctx: BlobsContext, key: string) {
-  return new URL(`/${ctx.siteID}/site:${STORE}/${encodeURIComponent(key)}`, ctx.edgeURL);
+function blobURL(ctx: BlobsContext, key: string, fresh = false) {
+  // The uncached edge always returns the latest write (the cached one can lag up to a minute).
+  const base = fresh && ctx.uncachedEdgeURL ? ctx.uncachedEdgeURL : ctx.edgeURL;
+  return new URL(`/${ctx.siteID}/site:${STORE}/${encodeURIComponent(key)}`, base);
 }
 
 const blobsBackend: Backend = {
@@ -45,7 +47,7 @@ const blobsBackend: Backend = {
   async get(key) {
     const ctx = blobsContext();
     if (!ctx) throw new Error("Netlify Blobs context missing");
-    const res = await rawFetch(blobURL(ctx, key), {
+    const res = await rawFetch(blobURL(ctx, key, true), {
       headers: { authorization: `Bearer ${ctx.token}` },
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { checkCredentials, createSession } from "@/lib/session";
+import { log } from "@/lib/log";
 
 // Login is a plain route handler (not a Server Action) so a page left open
 // across a redeploy can still log in.
@@ -9,9 +10,11 @@ export async function POST(request: Request) {
   const parsed = Body.safeParse(await request.json().catch(() => null));
   const display = parsed.success ? checkCredentials(parsed.data.name, parsed.data.password) : null;
   if (!display) {
+    log("login.fail", { name: parsed.success ? parsed.data.name.slice(0, 40) : null });
     await new Promise((r) => setTimeout(r, 800)); // slow down guessing
     return Response.json({ error: "Nombre o contraseña incorrectos." }, { status: 401 });
   }
   await createSession(display);
+  log("login.ok", { user: display });
   return Response.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { importPKCS8, SignJWT } from "jose";
 import { log } from "./log";
+import { parseServiceAccount } from "./saKey";
 
 /**
  * Reads photos from one private Google Drive folder through a service account.
@@ -30,9 +31,12 @@ let token: { value: string; expires: number } | null = null;
 
 async function accessToken(): Promise<string> {
   if (token && token.expires > Date.now() + 60_000) return token.value;
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!;
-  // Netlify/env files often store the key with literal "\n"; restore real newlines.
-  const pem = process.env.GOOGLE_SERVICE_ACCOUNT_KEY!.replace(/\\n/g, "\n").replace(/^"|"$/g, "");
+  const parsed = parseServiceAccount(process.env.GOOGLE_SERVICE_ACCOUNT_KEY ?? "", process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "");
+  if ("error" in parsed) {
+    log("photos.key_shape", parsed.shape);
+    throw new Error(parsed.error);
+  }
+  const { email, pem } = parsed;
   const key = await importPKCS8(pem, "RS256");
   const now = Math.floor(Date.now() / 1000);
   const assertion = await new SignJWT({ scope: "https://www.googleapis.com/auth/drive.readonly" })

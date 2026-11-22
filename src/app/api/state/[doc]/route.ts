@@ -43,8 +43,12 @@ export async function PUT(req: Request, ctx: { params: Promise<{ doc: string }> 
     return Response.json({ error: "Expected an object" }, { status: 400 });
   }
   try {
+    // A device whose clock runs ahead must not lock out the others: cap future stamps at server time.
+    const serverNow = Date.now();
+    const b = body as { updatedAt?: unknown };
+    if ((Number(b.updatedAt) || 0) > serverNow + 5000) b.updatedAt = serverNow;
     // Never let an older copy (stale tab, second device) overwrite a newer one.
-    const incoming = Number((body as { updatedAt?: unknown }).updatedAt) || 0;
+    const incoming = Number(b.updatedAt) || 0;
     const current = (await readDoc(session.name, doc)) as { updatedAt?: unknown } | null;
     const stored = Number(current?.updatedAt) || 0;
     if (current && stored > incoming) {

@@ -137,5 +137,6 @@ export function quizContext(p: Progress) {
       .map((e) => `[${e.skill}] ${e.prompt} → esperado «${e.expected}», escribió «${e.answer}»`),
     weakSkills: weakSkills(p.history).map((w) => w.skill),
     recentPlaces: p.history.filter((e) => e.type === "geo").slice(-20).map((e) => e.expected.split(" · ")[0]),
+    recentNews: p.history.flatMap((e) => (e.type === "news" && e.link ? [e.link] : [])).slice(-30),
   };
 }

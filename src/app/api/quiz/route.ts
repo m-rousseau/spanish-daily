@@ -11,6 +11,7 @@ const Body = z.object({
   recentPrompts: z.array(str).max(30).default([]),
   weakSkills: z.array(str).max(10).default([]),
   recentPlaces: z.array(str).max(30).default([]),
+  recentNews: z.array(z.string().max(500)).max(30).default([]),
 });
 
 export async function POST(request: Request) {

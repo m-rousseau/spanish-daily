@@ -156,7 +156,7 @@ export default function ChatWidget({ name, progress }: { name: string; progress:
           e.preventDefault();
           send();
         }}
-        className="flex gap-2 border-t border-border p-3"
+        className="flex gap-2 border-t border-border p-3 pb-16 sm:pb-3" /* clears the Netlify badge on phones */
       >
         <input
           value={input}

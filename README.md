@@ -80,7 +80,15 @@ npm run dev
 
 Then open http://localhost:3000.
 
-## Deploy (Vercel, free tier)
+## Live site
+
+Hosted on **Netlify** (free plan): https://spanish-daily-o8zz.netlify.app
+
+- Every push to `main` on GitHub redeploys automatically.
+- The three environment variables are set in Netlify under **Project configuration → Environment variables**. After changing one, trigger a new deploy (Deploys → Trigger deploy).
+- Visitor access: production is public (the app has its own login); deploy previews stay private to the Netlify team.
+
+## Deploy elsewhere (Vercel, free tier)
 
 1. Push this repo to GitHub.
 2. At https://vercel.com/new, import the repository. The framework is detected automatically.

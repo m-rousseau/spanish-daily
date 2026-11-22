@@ -33,6 +33,10 @@ export default function Exam({ name }: { name: string }) {
   const [failedParts, setFailedParts] = useState<number[]>([]);
   const [outcome, setOutcome] = useState<(ExamOutcome & { level: number }) | null>(null);
   const examRef = useRef(exam);
+
+  // Next.js keeps visited pages alive in the background: clear the results screen
+  // when she leaves, so coming back shows the next level's exam, not old results.
+  useEffect(() => () => setOutcome(null), []);
   const loading = useRef(new Set<number>());
 
   const commit = useCallback(

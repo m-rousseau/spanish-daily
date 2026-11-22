@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Question } from "@/lib/types";
@@ -28,6 +28,19 @@ export default function Practice({ name, initialTopic }: { name: string; initial
   const [results, setResults] = useState<(Result | null)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<RoundOutcome | null>(null);
+
+  // Leaving the page from a results screen returns her to the topic picker next time;
+  // a round in progress is kept so she can come back to it.
+  const phaseRef = useRef<Phase>(phase);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+  useEffect(
+    () => () => {
+      if (phaseRef.current === "done") setPhase("home");
+    },
+    [],
+  );
 
   async function start(topicOverride?: TopicId) {
     const chosen = topicOverride ?? topic;

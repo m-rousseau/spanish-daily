@@ -206,9 +206,9 @@ export default function Exam({ name }: { name: string }) {
 
       {!outcome && inProgress && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <h1 className="text-xl font-extrabold">🎓 {t.examTitle(exam.level!)}</h1>
-            <div className="flex gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+            <h1 className="w-full text-xl font-extrabold sm:w-auto">🎓 {t.examTitle(exam.level!)}</h1>
+            <div className="flex gap-5 whitespace-nowrap">
               <button
                 onClick={() => {
                   if (window.confirm(t.examRestart + "?")) startExam();

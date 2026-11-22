@@ -43,6 +43,14 @@ export async function PUT(req: Request, ctx: { params: Promise<{ doc: string }> 
     return Response.json({ error: "Expected an object" }, { status: 400 });
   }
   try {
+    // Never let an older copy (stale tab, second device) overwrite a newer one.
+    const incoming = Number((body as { updatedAt?: unknown }).updatedAt) || 0;
+    const current = (await readDoc(session.name, doc)) as { updatedAt?: unknown } | null;
+    const stored = Number(current?.updatedAt) || 0;
+    if (current && stored > incoming) {
+      log("state.write.stale", { user: session.name, doc, incoming, stored });
+      return Response.json({ error: "Stale", data: current }, { status: 409 });
+    }
     await writeDoc(session.name, doc, body);
     log("state.write", { user: session.name, doc, chars: text.length });
     return Response.json({ ok: true });

@@ -3,7 +3,7 @@
 // page. Next.js keeps visited pages alive in the background; without a shared
 // copy, a page left open would hold old data and could save it over newer data.
 import { useEffect, useSyncExternalStore } from "react";
-import { loadDoc, readCache, saveDoc, type Doc } from "./sync";
+import { loadDoc, onConflict, readCache, saveDoc, writeCache, type Doc } from "./sync";
 
 type Stamped = { updatedAt?: number };
 
@@ -16,6 +16,20 @@ type Store<T> = {
 };
 
 const stores = new Map<string, Store<unknown>>();
+const normalizers = new Map<string, (raw: unknown) => unknown>();
+
+// The server refused a stale save and sent its newer copy: show that one everywhere.
+if (typeof window !== "undefined") {
+  onConflict((doc, data) => {
+    for (const [key, s] of stores) {
+      if (!key.startsWith(`${doc}:`)) continue;
+      const normalize = normalizers.get(key) ?? ((x: unknown) => x);
+      s.value = normalize(data);
+      writeCache(doc, s.name, s.value);
+      emit(s);
+    }
+  });
+}
 
 function getStore<T>(doc: Doc, name: string, init: () => T): Store<T> {
   const key = `${doc}:${name.toLowerCase()}`;
@@ -65,6 +79,7 @@ export function useDoc<T extends Stamped>(
   name: string,
   opts: { initial: () => T; normalize: (raw: unknown) => T; onEmpty?: () => T | null },
 ) {
+  normalizers.set(`${doc}:${name.toLowerCase()}`, opts.normalize);
   const s = getStore<T>(doc, name, () => {
     const cached = readCache<T>(doc, name);
     return cached ? opts.normalize(cached) : opts.initial();

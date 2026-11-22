@@ -18,7 +18,7 @@ export function readCache<T>(doc: Doc, name: string): T | null {
   }
 }
 
-function writeCache(doc: Doc, name: string, value: unknown) {
+export function writeCache(doc: Doc, name: string, value: unknown) {
   try {
     localStorage.setItem(cacheKey(doc, name), JSON.stringify(value));
   } catch {
@@ -50,6 +50,13 @@ const latest = new Map<Doc, unknown>();
 const inFlight = new Map<Doc, Promise<void>>();
 const failed = new Set<Doc>();
 
+// Called when the server holds a newer copy than the one we tried to save.
+const conflictListeners = new Set<(doc: Doc, data: unknown) => void>();
+export function onConflict(fn: (doc: Doc, data: unknown) => void) {
+  conflictListeners.add(fn);
+  return () => conflictListeners.delete(fn);
+}
+
 async function put(doc: Doc, value: unknown): Promise<boolean> {
   try {
     const res = await fetch(`/api/state/${doc}`, {
@@ -60,6 +67,12 @@ async function put(doc: Doc, value: unknown): Promise<boolean> {
     if (res.status === 401) {
       goToLogin();
       return false;
+    }
+    if (res.status === 409) {
+      // A newer copy exists (another tab or device): keep it instead of ours.
+      const { data } = await res.json().catch(() => ({ data: null }));
+      if (data) conflictListeners.forEach((fn) => fn(doc, data));
+      return true;
     }
     return res.ok;
   } catch {

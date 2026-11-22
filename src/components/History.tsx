@@ -244,7 +244,7 @@ function Entry({ e }: { e: HistoryEntry }) {
             {e.level ? `${t.level} ${e.level} · ` : ""}
             {e.skill}
           </span>
-          <span className="font-semibold">{e.prompt}</span>
+          <span className="whitespace-pre-line font-semibold">{e.prompt}</span>
         </span>
         <span className="whitespace-nowrap text-sm font-bold text-muted">+{e.points}</span>
       </button>

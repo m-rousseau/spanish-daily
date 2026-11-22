@@ -139,7 +139,7 @@ function ChoiceBody({ q, result, onResult }: BodyProps) {
   const picked = result ? q.choices.indexOf(result.answer) : null;
   return (
     <>
-      {q.prompt && <p className="text-2xl font-bold leading-snug">{q.prompt}</p>}
+      {q.prompt && <p className="whitespace-pre-line text-2xl font-bold leading-snug">{q.prompt}</p>}
       <Choices
         choices={q.choices}
         correct={q.correct_index}
@@ -167,7 +167,7 @@ function GeoBody({ q, result, onResult }: BodyProps) {
       <Choices choices={q.choices} correct={q.correct_index} picked={first} onPick={setFirst} />
       {first !== null && (
         <>
-          <p className="pt-2 text-2xl font-bold leading-snug">{geo.known_for_prompt}</p>
+          <p className="whitespace-pre-line pt-2 text-2xl font-bold leading-snug">{geo.known_for_prompt}</p>
           <Choices
             choices={geo.known_for_choices}
             correct={geo.known_for_index}
@@ -261,7 +261,7 @@ function FreeBody({ q, level, result, onResult }: BodyProps & { level: number })
 
   return (
     <>
-      {q.prompt && <p className="text-2xl font-bold leading-snug">{q.prompt}</p>}
+      {q.prompt && <p className="whitespace-pre-line text-2xl font-bold leading-snug">{q.prompt}</p>}
       {(q.type === "listening" || (q.type === "speaking" && answered)) && speechOk.speak && (
         <div className="flex gap-2">
           <button onClick={() => speak(q.spanish_audio)} className="btn-ghost">

@@ -94,9 +94,36 @@ async function pickBackend(): Promise<Backend> {
     log(onNetlify() ? "store.backend.error" : "store.backend.local", {
       message: err instanceof Error ? err.message : String(err),
     });
+    if (onNetlify()) await diagnose();
     if (onNetlify()) throw err; // never silently fall back to a disk that disappears on Netlify
     log("store.backend", { backend: "file", dir: DATA_DIR });
     return fileBackend;
+  }
+}
+
+/** One direct request to the Blobs edge, logging status and timing (never the token). */
+async function diagnose() {
+  try {
+    const raw = process.env.NETLIFY_BLOBS_CONTEXT;
+    if (!raw) return;
+    const ctx = JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+    const g = globalThis as unknown as { _nextOriginalFetch?: typeof fetch };
+    const f = g._nextOriginalFetch ?? fetch;
+    for (const path of [`/${ctx.siteID}/site:spanish-daily/__probe__`, `/region:${ctx.primaryRegion}/${ctx.siteID}/site:spanish-daily/__probe__`]) {
+      const started = Date.now();
+      try {
+        const res = await f(new URL(path, ctx.edgeURL), {
+          headers: { authorization: `Bearer ${ctx.token}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(4000),
+        });
+        log("store.diagnose", { path: path.replace(ctx.siteID, "SITE"), status: res.status, ms: Date.now() - started, body: (await res.text()).slice(0, 120) });
+      } catch (e) {
+        log("store.diagnose", { path: path.replace(ctx.siteID, "SITE"), error: String(e), ms: Date.now() - started });
+      }
+    }
+  } catch (e) {
+    log("store.diagnose.error", { error: String(e) });
   }
 }
 

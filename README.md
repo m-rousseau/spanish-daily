@@ -20,8 +20,8 @@ She logs in, picks a topic and gets a round of 5 practice questions plus 2 fun b
 
 ## How it works
 
-- **Storage:** progress, the exam in progress and the tutor conversation are saved per user in **Netlify Blobs** (`src/lib/store.ts`), with a copy in the browser so the site still works offline. The newest copy wins, compared by timestamp. In local dev, documents are saved to `./.data/` instead.
-- **Logging:** every API call writes one JSON line, visible in Netlify → Functions → Next.js Server Handler. It records the user, the purpose, the model, input/output tokens and timing; for chat it also records how much context was kept.
+- **Storage:** progress, the exam in progress and the tutor conversation are saved per user on the server (`src/lib/store.ts`: JSON files in `.data/`, mounted from `~/espanol-diario/data/`), with a copy in the browser so the site still works offline. The newest copy wins, compared by timestamp. (The code can also use Netlify Blobs when deployed on Netlify.)
+- **Logging:** every API call writes one JSON line, visible with `docker compose logs web` on the server. It records the user, the purpose, the model, input/output tokens and timing; for chat it also records how much context was kept.
 - **Cost:** Haiku 5.5 ($0.10 / $0.50 per million tokens). A practice round, a tutor answer or an exam batch costs a small fraction of a cent.
 
 | File | Purpose |
@@ -30,7 +30,7 @@ She logs in, picks a topic and gets a round of 5 practice questions plus 2 fun b
 | `src/lib/claude.ts` | Every Haiku call: practice, fun questions, exam batches, grading, tutor |
 | `src/lib/progress.ts` | Progress model, the 10-day rule, exams and levels (pure functions) |
 | `src/lib/badges.ts`, `src/lib/scoring.ts` | Achievements, points, ranks |
-| `src/lib/store.ts`, `src/lib/sync.ts` | Server storage (Netlify Blobs) and browser sync |
+| `src/lib/store.ts`, `src/lib/sync.ts` | Server storage (JSON files) and browser sync |
 | `src/lib/trim.ts` | The tutor's 90,000-character context budget |
 | `src/app/api/*` | `quiz`, `grade`, `exam`, `chat`, `state/[doc]`, `login`, `logout` |
 | `src/components/` | `Practice`, `Exam`, `History`, `ChatWidget`, `LevelCard`, `QuestionCard`, `GeoMap`, `Tracker` |
@@ -57,22 +57,36 @@ npm run dev
 
 Then open http://localhost:3000.
 
-## Live site
+## Live site (home server + Tailscale Funnel)
 
-Hosted on **Netlify** (free plan): https://spanish-daily-o8zz.netlify.app
+**https://slave.tailc58c14.ts.net**: runs in Docker on the Ubuntu home server (`slave`) and is published to the internet with **Tailscale Funnel**. No Tailscale app or account is needed to visit it; the site's own login protects it. HTTPS comes from Tailscale, so the microphone works.
 
-- Every push to `main` on GitHub redeploys automatically.
-- The three environment variables are set in Netlify under **Project configuration → Environment variables**. After changing one, trigger a new deploy (Deploys → Trigger deploy).
-- Visitor access: production is public (the app has its own login); deploy previews stay private to the Netlify team.
+On the server, everything lives in `~/espanol-diario/`:
 
-## Deploy elsewhere (Vercel, free tier)
+| Path | What it is |
+|---|---|
+| `docker-compose.yml`, `Dockerfile` | The container (`espanol-diario`), listening only on `127.0.0.1:3070` |
+| `.env.production` | Secrets (chmod 600, never committed): `ANTHROPIC_SPANISH_DAILY` (API key), `APP_USERS`, `SESSION_SECRET`, Google settings |
+| `google-key.json` | The Google service account's key (read-only photo access) |
+| `data/` | Saved progress, exams and chats, one JSON file per user and document. **Back this folder up.** |
 
-1. Push this repo to GitHub.
-2. At https://vercel.com/new, import the repository. The framework is detected automatically.
-3. Under **Settings → Environment Variables**, add `ANTHROPIC_API_KEY`, `APP_USERS` and `SESSION_SECRET` (use a new secret, not your local one).
-4. Deploy. Optionally add a custom domain under **Settings → Domains**.
+**Update the site** after changing code, from your Mac in this folder (copies the code, then rebuilds; secrets, the key and `data/` stay on the server):
 
-Any other Node host works too (Netlify, Render, Fly.io, a VPS). Run `npm run build && npm start` with the same three environment variables. The site must be served over **HTTPS**, because browsers only allow the microphone on secure origins.
+```bash
+rsync -az --delete --exclude node_modules --exclude .next --exclude .data --exclude data --exclude .git --exclude '.env*' --exclude google-key.json --exclude .claude ./ slave-lan:espanol-diario/ && ssh slave-lan 'cd ~/espanol-diario && docker compose up -d --build'
+```
+
+**Useful commands on the server:**
+
+```bash
+docker compose logs -f web          # live logs (one JSON line per API call)
+docker compose restart web          # restart
+tailscale funnel status             # check the public link
+tailscale funnel --bg 3070          # turn the public link back on
+tailscale funnel --https=443 off    # take the site offline
+```
+
+**Family photos:** add pictures to the Google Drive folder **Fotos para Mamá**. They appear within about 5 minutes, and her home page shows a "new photos" card.
 
 ## Tips for her
 
@@ -82,6 +96,6 @@ Any other Node host works too (Netlify, Render, Fly.io, a VPS). Run `npm run bui
 
 ## Possible next steps
 
-- **Sync progress across devices:** points, streak and history currently live in each browser (clearing the browser's site data erases them). Moving it to a small database (e.g. Upstash Redis or Vercel Postgres, keyed by user name) would share it between her phone and computer.
+- **Backups:** copy `~/espanol-diario/data/` somewhere safe on a schedule (e.g. a nightly `rsync` or `tar`).
 - **Daily reminder:** send an email or push notification each morning.
 - **Usage cap:** add a per-user daily request limit if you ever share the site more widely.

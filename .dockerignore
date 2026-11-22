@@ -1,0 +1,10 @@
+node_modules
+.next
+.data
+data
+.git
+.env*
+!.env.example
+*.json.key
+google-key.json
+.claude

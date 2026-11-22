@@ -21,7 +21,12 @@ export function parseServiceAccount(
     }
   }
   const unescaped = source.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n");
-  const m = unescaped.match(/-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]*?)-----END (?:RSA )?PRIVATE KEY-----/);
+  let m = unescaped.match(/-----BEGIN (?:RSA )?PRIVATE KEY-----([\s\S]*?)-----END (?:RSA )?PRIVATE KEY-----/);
+  if (!m) {
+    // Header and footer lines missing (only the middle was copied): accept a long base64 body.
+    const bare = unescaped.replace(/-----(BEGIN|END)[^-]*-----/g, "").replace(/^["',\s]+|["',\s]+$/g, "");
+    if (bare.length >= 1000 && /^[A-Za-z0-9+/=\s]+$/.test(bare)) m = ["", bare] as unknown as RegExpMatchArray;
+  }
   if (!m) {
     return {
       error: "GOOGLE_SERVICE_ACCOUNT_KEY doesn't contain a private key block",

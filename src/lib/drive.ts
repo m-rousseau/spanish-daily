@@ -1,4 +1,5 @@
 import "server-only";
+import { readFileSync } from "node:fs";
 import { importPKCS8, SignJWT } from "jose";
 import { log } from "./log";
 import { parseServiceAccount } from "./saKey";
@@ -16,8 +17,22 @@ export type Photo = { id: string; name: string; createdTime: string; takenTime: 
 const rawFetch: typeof fetch =
   (globalThis as unknown as { _nextOriginalFetch?: typeof fetch })._nextOriginalFetch ?? fetch;
 
+/** The key: GOOGLE_SERVICE_ACCOUNT_KEY_FILE (path to the downloaded JSON key) or GOOGLE_SERVICE_ACCOUNT_KEY. */
+function keySource(): string {
+  const file = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+  if (file) {
+    try {
+      return readFileSync(file, "utf8");
+    } catch {
+      return "";
+    }
+  }
+  return process.env.GOOGLE_SERVICE_ACCOUNT_KEY ?? "";
+}
+
 export function driveConfigured() {
-  return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_SERVICE_ACCOUNT_KEY && folderId());
+  const key = keySource();
+  return Boolean(key && folderId() && (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || key.includes("client_email")));
 }
 
 /** Accepts the bare folder ID or a pasted folder URL. */
@@ -31,7 +46,7 @@ let token: { value: string; expires: number } | null = null;
 
 async function accessToken(): Promise<string> {
   if (token && token.expires > Date.now() + 60_000) return token.value;
-  const parsed = parseServiceAccount(process.env.GOOGLE_SERVICE_ACCOUNT_KEY ?? "", process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "");
+  const parsed = parseServiceAccount(keySource(), process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? "");
   if ("error" in parsed) {
     log("photos.key_shape", parsed.shape);
     throw new Error(parsed.error);

@@ -44,3 +44,8 @@ next-env.d.ts
 
 # local dev data store
 /.data
+
+# server deployment
+/data
+.env.production
+google-key.json

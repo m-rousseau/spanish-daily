@@ -3,7 +3,7 @@ import { goToLogin } from "@/lib/nav";
 import { useEffect, useRef, useState } from "react";
 import { levelInfo } from "@/lib/topics";
 import { levelStat, longestStreak, streak, weakSkills, type Progress } from "@/lib/progress";
-import { loadDoc, readCache, saveDoc } from "@/lib/sync";
+import { useDoc } from "@/lib/docStore";
 import { useScreen } from "@/lib/screen";
 import { badgeById } from "@/lib/badges";
 import { useLang } from "./LangProvider";
@@ -40,30 +40,26 @@ export default function ChatWidget({ name, progress }: { name: string; progress:
   const { t, lang } = useLang();
   const screen = useScreen();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>(() => readCache<ChatDoc>("chat", name)?.messages ?? []);
+  // Shared by every page, so a page left open in the background never holds an old copy.
+  const chat = useDoc<ChatDoc>("chat", name, {
+    initial: () => ({ messages: [] }),
+    normalize: (raw) => {
+      const d = (raw ?? {}) as Partial<ChatDoc>;
+      return { updatedAt: d.updatedAt, messages: Array.isArray(d.messages) ? d.messages : [] };
+    },
+  });
+  const messages = chat.value.messages;
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let alive = true;
-    loadDoc<ChatDoc>("chat", name).then((doc) => {
-      if (alive && doc?.messages) setMessages(doc.messages);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [name]);
-
-  useEffect(() => {
     if (open) endRef.current?.scrollIntoView({ block: "end" });
   }, [open, messages, sending]);
 
   function persist(next: Msg[]) {
-    const kept = next.slice(-MAX_STORED);
-    setMessages(kept);
-    saveDoc<ChatDoc>("chat", name, { messages: kept });
+    chat.update({ messages: next.slice(-MAX_STORED) });
   }
 
   async function send() {

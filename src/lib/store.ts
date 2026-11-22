@@ -51,8 +51,25 @@ const onNetlify = () => Boolean(process.env.NETLIFY || process.env.NETLIFY_BLOBS
 
 let backend: Promise<Backend> | null = null;
 
+/** Field names and hosts in the Blobs context, for debugging. Never logs the token. */
+function describeContext() {
+  try {
+    const raw = process.env.NETLIFY_BLOBS_CONTEXT;
+    if (!raw) return null;
+    const ctx = JSON.parse(Buffer.from(raw, "base64").toString("utf8")) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(ctx).map(([k, v]) => [
+        k,
+        k.toLowerCase().includes("token") ? `(${String(v).length} chars)` : typeof v === "string" && v.startsWith("http") ? new URL(v).host : String(v).slice(0, 40),
+      ]),
+    );
+  } catch (err) {
+    return { parseError: String(err) };
+  }
+}
+
 async function pickBackend(): Promise<Backend> {
-  log("store.pick", { onNetlify: onNetlify(), hasBlobsContext: Boolean(process.env.NETLIFY_BLOBS_CONTEXT) });
+  log("store.pick", { onNetlify: onNetlify(), hasBlobsContext: Boolean(process.env.NETLIFY_BLOBS_CONTEXT), context: describeContext() });
   try {
     const { getStore } = await import("@netlify/blobs");
     // Default (eventual) consistency: the browser keeps a timestamped copy and

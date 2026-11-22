@@ -6,7 +6,7 @@ import L from "leaflet";
 // Esri World Imagery: satellite photos without labels (so the map doesn't give the answer away).
 const SATELLITE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const LABELS = "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}";
-const ATTRIBUTION = "Imágenes © Esri, Maxar, Earthstar Geographics";
+const ATTRIBUTION = "© Esri, Maxar";
 
 export default function GeoMap({ lat, lon, zoom, revealed }: { lat: number; lon: number; zoom: number; revealed: boolean }) {
   const el = useRef<HTMLDivElement>(null);
@@ -14,7 +14,16 @@ export default function GeoMap({ lat, lon, zoom, revealed }: { lat: number; lon:
 
   useEffect(() => {
     if (!el.current) return;
-    const m = L.map(el.current, { center: [lat, lon], zoom, scrollWheelZoom: false, attributionControl: true });
+    const touch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    const m = L.map(el.current, {
+      center: [lat, lon],
+      zoom,
+      scrollWheelZoom: false,
+      dragging: !touch, // on phones a swipe should scroll the page, not move the map
+      touchZoom: touch,
+      attributionControl: true,
+    });
+    m.attributionControl.setPrefix(false);
     L.tileLayer(SATELLITE, { attribution: ATTRIBUTION, maxZoom: 18 }).addTo(m);
     map.current = m;
     return () => {

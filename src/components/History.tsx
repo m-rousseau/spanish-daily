@@ -88,7 +88,7 @@ export default function History() {
                   <span>
                     {t.levelOf(lv.n, lv.cefr)} · {lv.name[lang]} {lv.n === progress.level && <span className="text-accent">({t.current})</span>}
                   </span>
-                  {hasGraduated(progress, lv.n) && <span className="text-good">{t.graduated}</span>}
+                  {hasGraduated(progress, lv.n) && <span className="whitespace-nowrap text-good">{t.graduated}</span>}
                 </div>
                 <div className="text-sm text-muted">
                   {t.daysAtLevel(Math.min(st.days.length, DAYS_TO_GRADUATE), DAYS_TO_GRADUATE)} · {st.answered}{" "}

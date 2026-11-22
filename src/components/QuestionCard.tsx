@@ -161,13 +161,17 @@ function ChoiceBody({ q, result, onResult }: BodyProps) {
 function GeoBody({ q, result, onResult }: BodyProps) {
   const geo = q.geo!;
   const [first, setFirst] = useState<number | null>(null);
+  const partTwo = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (first !== null) partTwo.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [first]);
   return (
     <>
       <GeoMap lat={geo.lat} lon={geo.lon} zoom={geo.zoom} revealed={result !== null} />
       <Choices choices={q.choices} correct={q.correct_index} picked={first} onPick={setFirst} />
       {first !== null && (
         <>
-          <p className="whitespace-pre-line pt-2 text-2xl font-bold leading-snug">{geo.known_for_prompt}</p>
+          <p ref={partTwo} className="scroll-mt-4 whitespace-pre-line pt-2 text-2xl font-bold leading-snug">{geo.known_for_prompt}</p>
           <Choices
             choices={geo.known_for_choices}
             correct={geo.known_for_index}
@@ -203,6 +207,7 @@ function FreeBody({ q, level, result, onResult }: BodyProps & { level: number })
   const [micError, setMicError] = useState<string | null>(null);
   const [typeMode, setTypeMode] = useState(false);
   const stopRef = useRef<() => void>(() => {});
+  const inputRef = useRef<HTMLInputElement>(null);
   const [speechOk] = useState(() => ({ listen: canListen(), speak: canSpeak() }));
   const answered = result !== null;
   const isSpeaking = q.type === "speaking" && speechOk.listen && !typeMode;
@@ -294,6 +299,7 @@ function FreeBody({ q, level, result, onResult }: BodyProps & { level: number })
             <>
               {q.type === "speaking" && !speechOk.listen && <p className="text-base text-muted">{t.noMic}</p>}
               <input
+                ref={inputRef}
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && answer.trim() && !checking && check(answer)}
@@ -306,7 +312,20 @@ function FreeBody({ q, level, result, onResult }: BodyProps & { level: number })
                 lang="es"
                 maxLength={500}
               />
-              <AccentKeys onKey={(ch) => setAnswer((a) => a + ch)} />
+              <AccentKeys
+                onKey={(ch) => {
+                  // Insert at the cursor and keep the keyboard open (phones close it when focus moves).
+                  const el = inputRef.current;
+                  const start = el?.selectionStart ?? answer.length;
+                  const end = el?.selectionEnd ?? answer.length;
+                  const next = (answer.slice(0, start) + ch + answer.slice(end)).slice(0, 500);
+                  setAnswer(next);
+                  requestAnimationFrame(() => {
+                    el?.focus();
+                    el?.setSelectionRange(start + ch.length, start + ch.length);
+                  });
+                }}
+              />
             </>
           )}
           <div className="flex flex-wrap gap-x-6 gap-y-2">
@@ -338,8 +357,13 @@ function Feedback({ q, result }: { q: Question; result: Result }) {
   const v = result.grade.verdict;
   const tone = v === "correct" ? "bg-good-soft text-good" : v === "almost" ? "bg-warn-soft text-warn" : "bg-bad-soft text-bad";
   const choice = q.type === "multiple_choice" || q.type === "news";
+  const box = useRef<HTMLDivElement>(null);
+  // On a phone the result appears below the fold: bring it (and the Next button after it) into view.
+  useEffect(() => {
+    box.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
   return (
-    <div className={`space-y-2 rounded-2xl p-4 ${tone}`} role="status">
+    <div ref={box} className={`scroll-mb-28 space-y-2 rounded-2xl p-4 ${tone}`} role="status">
       <p className="flex items-center justify-between gap-2 text-xl font-extrabold">
         <span>
           {verdictIcon(v)} {t[v]}
@@ -396,6 +420,7 @@ function AccentKeys({ onKey }: { onKey: (ch: string) => void }) {
         <button
           key={ch}
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => onKey(ch)}
           className="h-11 w-11 rounded-xl border-2 border-border bg-card text-xl font-bold hover:border-accent"
         >

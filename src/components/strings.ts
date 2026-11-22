@@ -76,6 +76,7 @@ const es = {
   examEarly: (d: number, total: number) =>
     `Llevas ${d} de ${total} días en este nivel. Lo ideal es esperar a los ${total} días, pero puedes hacerlo ahora si quieres.`,
   examReady: "¡Estás lista! Completaste los días de este nivel.",
+  examAlreadyPassed: "🎓 Ya aprobaste este nivel. Puedes repetir el examen para practicar.",
   examStart: "Empezar el examen",
   examResume: (i: number, total: number) => `Seguir el examen (pregunta ${i} de ${total})`,
   examRestart: "Empezar de nuevo",
@@ -222,6 +223,7 @@ const en: Strings = {
   examEarly: (d: number, total: number) =>
     `You have ${d} of ${total} days at this level. It's best to wait for ${total} days, but you can take it now if you want.`,
   examReady: "You're ready! You completed the days for this level.",
+  examAlreadyPassed: "🎓 You already passed this level. You can retake the exam for practice.",
   examStart: "Start the exam",
   examResume: (i: number, total: number) => `Continue the exam (question ${i} of ${total})`,
   examRestart: "Start over",

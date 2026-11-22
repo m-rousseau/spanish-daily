@@ -8,6 +8,7 @@ export default function Gallery({ name }: { name: string }) {
   const { t } = useLang();
   const { photos, configured, loading, error, isNew, markSeen } = usePhotos(name);
   const [open, setOpen] = useState<number | null>(null);
+  const [touchX, setTouchX] = useState<number | null>(null);
   // Remember the newest "new" set for this visit, then mark them seen.
   const [newIds] = useState(() => new Set<string>());
 
@@ -68,7 +69,7 @@ export default function Gallery({ name }: { name: string }) {
 
       {open !== null && photos[open] && (
         <div
-          className="fixed inset-0 z-[60] flex flex-col bg-black/95"
+          className="fixed inset-0 z-[60] flex flex-col bg-black"
           role="dialog"
           aria-label={dateOf(photos[open])}
           onClick={() => setOpen(null)}
@@ -79,7 +80,18 @@ export default function Gallery({ name }: { name: string }) {
               ×
             </button>
           </div>
-          <div className="flex flex-1 items-center justify-center p-2" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="flex flex-1 items-center justify-center p-2"
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
+            onTouchEnd={(e) => {
+              if (touchX === null) return;
+              const dx = e.changedTouches[0].clientX - touchX;
+              if (dx < -50) setOpen((i) => (i === null ? i : Math.min(i + 1, photos.length - 1)));
+              if (dx > 50) setOpen((i) => (i === null ? i : Math.max(i - 1, 0)));
+              setTouchX(null);
+            }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- private images served by our own API */}
             <img
               key={photos[open].id}
@@ -88,7 +100,7 @@ export default function Gallery({ name }: { name: string }) {
               className="max-h-full max-w-full rounded-xl object-contain"
             />
           </div>
-          <div className="flex justify-between gap-3 p-3 pb-16 sm:pb-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex justify-between gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" onClick={(e) => e.stopPropagation()}>
             <button className="btn-ghost flex-1" disabled={open === 0} onClick={() => setOpen(open - 1)}>
               ← {t.photosPrev}
             </button>

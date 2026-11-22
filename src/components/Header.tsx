@@ -9,7 +9,7 @@ export default function Header({ active }: { active: "practice" | "history" | "e
   const link = (href: string, label: string, on: boolean) => (
     <Link
       href={href}
-      className={`rounded-xl px-2 py-1 text-base font-bold sm:px-3 ${on ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}
+      className={`whitespace-nowrap rounded-xl px-1 py-1.5 text-center text-[15px] font-bold sm:px-3 sm:text-base ${on ? "bg-accent text-white" : "text-muted hover:text-foreground"}`}
     >
       {label}
     </Link>
@@ -34,7 +34,7 @@ export default function Header({ active }: { active: "practice" | "history" | "e
           </form>
         </div>
       </div>
-      <nav className="flex flex-wrap items-center gap-1">
+      <nav className="grid grid-cols-4 gap-1 sm:flex sm:items-center">
         {link("/", t.practice, active === "practice")}
         {link("/examen", `🎓 ${t.exam}`, active === "exam")}
         {link("/historia", t.history, active === "history")}

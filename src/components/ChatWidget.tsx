@@ -35,6 +35,30 @@ function historyLines(p: Progress): string[] {
   );
 }
 
+/** Minimal, safe rendering of the tutor's **bold**, *italic* and "- " bullet lists (no HTML). */
+function renderMarkdown(text: string) {
+  return text.split("\n").map((line, li) => {
+    const bullet = /^\s*[-*•]\s+/.test(line);
+    const body = bullet ? line.replace(/^\s*[-*•]\s+/, "") : line.replace(/^#{1,6}\s+/, "");
+    const parts = body.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g).map((p, i) =>
+      p.startsWith("**") && p.endsWith("**") && p.length > 4 ? (
+        <strong key={i}>{p.slice(2, -2)}</strong>
+      ) : p.startsWith("*") && p.endsWith("*") && p.length > 2 ? (
+        <em key={i}>{p.slice(1, -1)}</em>
+      ) : (
+        p
+      ),
+    );
+    return (
+      <span key={li} className={bullet ? "block pl-4 -indent-3" : "block"}>
+        {bullet && "• "}
+        {parts}
+        {!body && "\u00a0"}
+      </span>
+    );
+  });
+}
+
 /** Floating tutor, available on every page. Remembers the conversation across sessions and devices. */
 export default function ChatWidget({ name, progress }: { name: string; progress: Progress }) {
   const { t, lang } = useLang();
@@ -105,10 +129,13 @@ export default function ChatWidget({ name, progress }: { name: string; progress:
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-40 rounded-full bg-accent px-5 py-3 text-lg font-bold text-white shadow-lg hover:brightness-110"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-2xl font-bold text-white shadow-lg hover:brightness-110 sm:h-auto sm:w-auto sm:px-5 sm:py-3 sm:text-lg"
         aria-label={t.chatTitle}
       >
-        {t.chatOpen}
+        <span className="sm:hidden" aria-hidden>
+          💬
+        </span>
+        <span className="hidden sm:inline">{t.chatOpen}</span>
       </button>
     );
   }
@@ -136,11 +163,11 @@ export default function ChatWidget({ name, progress }: { name: string; progress:
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-base ${
+            className={`max-w-[85%] rounded-2xl px-3 py-2 text-base ${
               m.role === "user" ? "ml-auto bg-accent text-white" : "bg-background"
             }`}
           >
-            {m.content}
+            {m.role === "assistant" ? renderMarkdown(m.content) : m.content}
           </div>
         ))}
         {sending && <div className="w-16 animate-pulse rounded-2xl bg-background px-3 py-2">…</div>}
@@ -152,7 +179,7 @@ export default function ChatWidget({ name, progress }: { name: string; progress:
           e.preventDefault();
           send();
         }}
-        className="flex gap-2 border-t border-border p-3 pb-16 sm:pb-3" /* clears the Netlify badge on phones */
+        className="flex gap-2 border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       >
         <input
           value={input}

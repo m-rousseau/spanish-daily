@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Question } from "@/lib/types";
 import { DAYS_TO_GRADUATE, EXAM_BATCH, EXAM_PASS, EXAM_QUESTIONS, levelInfo, type Lang } from "@/lib/topics";
-import { examReady, levelStat, recordExam, type ExamOutcome } from "@/lib/progress";
+import { examReady, hasGraduated, levelStat, recordExam, type ExamOutcome } from "@/lib/progress";
 import { badgeById } from "@/lib/badges";
 import { loadDoc, readCache, saveDoc } from "@/lib/sync";
 import { useAppProgress } from "./AppShell";
@@ -186,8 +186,14 @@ export default function Exam({ name }: { name: string }) {
             {L.name[lang]} · {L.cefr}
           </p>
           <p>{t.examIntro(EXAM_QUESTIONS, Math.round(EXAM_PASS * 100))}</p>
-          <p className={`rounded-2xl p-3 ${examReady(progress, L.n) ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}>
-            {examReady(progress, L.n) ? t.examReady : t.examEarly(Math.min(days, DAYS_TO_GRADUATE), DAYS_TO_GRADUATE)}
+          <p
+            className={`rounded-2xl p-3 ${hasGraduated(progress, L.n) || examReady(progress, L.n) ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}
+          >
+            {hasGraduated(progress, L.n)
+              ? t.examAlreadyPassed
+              : examReady(progress, L.n)
+                ? t.examReady
+                : t.examEarly(Math.min(days, DAYS_TO_GRADUATE), DAYS_TO_GRADUATE)}
           </p>
           <button onClick={startExam} className="btn-primary w-full text-xl" data-testid="exam-start">
             {t.examStart}

@@ -23,7 +23,7 @@ export default function LevelCard({ progress, onSetLevel }: { progress: Progress
           </Link>
         </div>
       )}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="text-sm font-bold uppercase tracking-wide text-muted">{t.levelOf(L.n, L.cefr)}</div>
           <div className="text-2xl font-extrabold">{L.name[lang]}</div>
@@ -36,7 +36,7 @@ export default function LevelCard({ progress, onSetLevel }: { progress: Progress
       <div>
         <div className="mb-1 flex justify-between text-sm font-bold">
           <span>{t.daysAtLevel(Math.min(days, DAYS_TO_GRADUATE), DAYS_TO_GRADUATE)}</span>
-          {hasGraduated(progress, L.n) && <span className="text-good">{t.graduated}</span>}
+          {hasGraduated(progress, L.n) && <span className="whitespace-nowrap text-good">{t.graduated}</span>}
         </div>
         <div className="grid grid-cols-10 gap-1" aria-label={t.daysAtLevel(days, DAYS_TO_GRADUATE)}>
           {Array.from({ length: DAYS_TO_GRADUATE }, (_, i) => (

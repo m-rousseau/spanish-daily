@@ -10,7 +10,9 @@ import type { Grade, Question } from "./types";
 // Every request in the app uses Claude Haiku 5.5.
 const MODEL = "claude-haiku-5-5";
 
-const client = new Anthropic(); // reads ANTHROPIC_API_KEY
+// The key may be stored as ANTHROPIC_API_KEY or ANTHROPIC_SPANISH_DAILY (the home server uses the latter).
+const apiKey = () => process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_SPANISH_DAILY;
+const client = new Anthropic({ apiKey: apiKey() });
 
 // ---------- Schemas (structured outputs) ----------
 
@@ -406,7 +408,7 @@ How to reply:
 export function describeError(err: unknown, lang: Lang = "es"): { status: number; message: string } {
   const m = (es: string, en: string) => (lang === "en" ? en : es);
   // Server-side details go to the logs; she sees a simple message.
-  if (!process.env.ANTHROPIC_API_KEY)
+  if (!apiKey())
     return { status: 500, message: m("Falta la clave de la API en el servidor (ANTHROPIC_API_KEY).", "The server is missing ANTHROPIC_API_KEY.") };
   if (err instanceof RefusedError) return { status: 422, message: m("No se pudo crear. Inténtalo otra vez, por favor.", "Couldn't create that. Please try again.") };
   if (err instanceof Anthropic.AuthenticationError) return { status: 500, message: m("La clave de la API no es válida.", "The API key is invalid.") };

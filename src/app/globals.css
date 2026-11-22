@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fff8ef;
+  --foreground: #2b2118;
+  --card: #ffffff;
+  --muted: #7a6a5a;
+  --border: #ecdcc8;
+  --accent: #e4572e;
+  --accent-soft: #fde4d8;
+  --good: #2e7d4f;
+  --good-soft: #dff3e6;
+  --warn: #9a6a00;
+  --warn-soft: #fbefcf;
+  --bad: #b3261e;
+  --bad-soft: #fbe0de;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #1d1915;
+    --foreground: #f4ebe1;
+    --card: #2a241e;
+    --muted: #b7a796;
+    --border: #3d342b;
+    --accent: #ff7a52;
+    --accent-soft: #4a2a1e;
+    --good: #7fd6a0;
+    --good-soft: #1f3a2a;
+    --warn: #f3c969;
+    --warn-soft: #3f3418;
+    --bad: #ff8f86;
+    --bad-soft: #45201d;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: var(--font-nunito);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  font-size: 1.125rem; /* larger base size for comfortable reading */
+}
+
+@utility card {
+  @apply rounded-3xl border border-border bg-card p-6 shadow-sm;
+}
+@utility label {
+  @apply mb-1 block text-base font-semibold text-muted;
+}
+@utility input {
+  @apply w-full rounded-2xl border-2 border-border bg-background px-4 py-3 text-xl outline-none focus:border-accent;
+}
+@utility btn {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-lg font-bold transition active:scale-[0.98] disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-white hover:brightness-110;
+}
+@utility btn-ghost {
+  @apply btn border-2 border-border bg-card hover:border-accent;
+}

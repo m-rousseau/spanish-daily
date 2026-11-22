@@ -5,6 +5,7 @@ services:
     image: espanol-diario:latest
     container_name: espanol-diario
     restart: unless-stopped
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}" # same user that owns ./data and the key file
     env_file: .env.production
     environment:
       GOOGLE_SERVICE_ACCOUNT_KEY_FILE: /run/secrets/google-key.json

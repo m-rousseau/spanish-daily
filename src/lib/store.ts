@@ -57,7 +57,13 @@ async function pickBackend(): Promise<Backend> {
     const { getStore } = await import("@netlify/blobs");
     // Default (eventual) consistency: the browser keeps a timestamped copy and
     // re-sends it if the server copy is ever older.
-    const store = getStore({ name: "spanish-daily" });
+    // Next.js wraps global fetch for its data cache; give Blobs the original, uncached fetch.
+    const g = globalThis as unknown as { _nextOriginalFetch?: typeof fetch };
+    const rawFetch: typeof fetch = g._nextOriginalFetch ?? globalThis.fetch;
+    const store = getStore({
+      name: "spanish-daily",
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => rawFetch(input, { ...init, cache: "no-store" }),
+    });
     await withTimeout(store.get("__probe__"), 4000, "blobs probe");
     log("store.backend", { backend: "netlify-blobs" });
     return {

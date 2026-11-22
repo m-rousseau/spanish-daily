@@ -18,3 +18,7 @@ export function HistoryLoader({ name }: { name: string }) {
 export function ExamLoader({ name }: { name: string }) {
   return <ClientApp page="exam" name={name} />;
 }
+
+export function GalleryLoader({ name }: { name: string }) {
+  return <ClientApp page="photos" name={name} />;
+}

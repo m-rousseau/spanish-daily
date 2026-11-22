@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useSyncStatus } from "@/lib/sync";
 import { LangToggle, useLang } from "./LangProvider";
 
-export default function Header({ active }: { active: "practice" | "history" | "exam" }) {
+export default function Header({ active }: { active: "practice" | "history" | "exam" | "photos" }) {
   const { t, lang } = useLang();
   const status = useSyncStatus();
   const link = (href: string, label: string, on: boolean) => (
@@ -34,10 +34,11 @@ export default function Header({ active }: { active: "practice" | "history" | "e
           </form>
         </div>
       </div>
-      <nav className="flex items-center gap-1">
+      <nav className="flex flex-wrap items-center gap-1">
         {link("/", t.practice, active === "practice")}
         {link("/examen", `🎓 ${t.exam}`, active === "exam")}
         {link("/historia", t.history, active === "history")}
+        {link("/fotos", `📸 ${t.photos}`, active === "photos")}
       </nav>
     </header>
   );

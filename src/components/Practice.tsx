@@ -11,6 +11,7 @@ import { useLang } from "./LangProvider";
 import Header from "./Header";
 import Tracker from "./Tracker";
 import LevelCard from "./LevelCard";
+import NewPhotosCard from "./NewPhotosCard";
 import QuestionCard, { verdictIcon, type Result } from "./QuestionCard";
 
 type Phase = "home" | "loading" | "quiz" | "done";
@@ -107,6 +108,7 @@ export default function Practice({ name, initialTopic }: { name: string; initial
             <p className={`mt-1 ${practicedToday ? "text-good" : "text-muted"}`}>{practicedToday ? t.doneToday : t.notToday}</p>
           </div>
 
+          <NewPhotosCard name={name} />
           <Tracker progress={progress} />
           <LevelCard progress={progress} onSetLevel={(n) => update(setLevel(progress, n))} />
 

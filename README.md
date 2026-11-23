@@ -88,6 +88,16 @@ tailscale funnel --https=443 off    # take the site offline
 
 **Family photos:** add pictures to the Google Drive folder **Fotos para Mamá**. They appear within about 5 minutes, and her home page shows a "new photos" card.
 
+## Backups
+
+- **On the server, nightly at 3:30:** `ops/backup.sh` (cron) archives `~/espanol-diario/data` to
+  `~/espanol-diario/backups/data-YYYYMMDD-HHMMSS.tgz` and keeps the last 30.
+- **Off the server, daily:** this Mac copies those archives to `~/Backups/espanol-diario`
+  (launchd job `cx.rousseau.espanol-diario-backup`), so a failed server disk loses nothing.
+  It runs at 9:00, or as soon as the Mac wakes if it was asleep.
+- **Restore:** `docker compose stop`, then `tar -xzf backups/data-….tgz -C ~/espanol-diario`
+  (replaces `data/`), then `docker compose up -d`. Have her reload the page.
+
 ## Tips for her
 
 - **Use Chrome, Edge or Safari** for speaking questions. Firefox has no speech recognition, so it falls back to typing. The browser asks for microphone permission the first time.

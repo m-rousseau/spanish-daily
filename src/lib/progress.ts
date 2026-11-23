@@ -39,6 +39,39 @@ export type Progress = {
 
 export const DEFAULT_LEVEL = 2; // first university semester
 const MAX_HISTORY = 3000;
+// The server refuses progress saves over 3,000,000 characters. History is by far the
+// largest part, so it is kept under this budget (newest entries win), leaving headroom.
+const HISTORY_BUDGET_CHARS = 2_000_000;
+
+const cut = (s: unknown, n: number) => (typeof s === "string" ? (s.length > n ? s.slice(0, n - 1) + "…" : s) : "");
+
+/** Bounds every text field of one history entry (long reading passages, long feedback). */
+function compactEntry<T extends HistoryEntry>(e: T): T {
+  return {
+    ...e,
+    topic: cut(e.topic, 40),
+    skill: cut(e.skill, 80),
+    instruction: cut(e.instruction, 300),
+    prompt: cut(e.prompt, 1200),
+    answer: cut(e.answer, 500),
+    expected: cut(e.expected, 400),
+    feedback: cut(e.feedback, 800),
+    ...(e.link ? { link: cut(e.link, 500) } : {}),
+  };
+}
+
+/** Newest entries first until the count or size budget is reached; returned oldest first. */
+export function fitHistory(history: HistoryEntry[]): HistoryEntry[] {
+  const kept: HistoryEntry[] = [];
+  let chars = 0;
+  for (let i = history.length - 1; i >= 0 && kept.length < MAX_HISTORY; i--) {
+    const e = compactEntry(history[i]);
+    chars += JSON.stringify(e).length + 1;
+    if (chars > HISTORY_BUDGET_CHARS) break;
+    kept.push(e);
+  }
+  return kept.reverse();
+}
 
 export const emptyProgress = (): Progress => ({
   updatedAt: 0,
@@ -56,7 +89,9 @@ export const emptyProgress = (): Progress => ({
 export function normalizeProgress(raw: unknown): Progress {
   const p = { ...emptyProgress(), ...(raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Partial<Progress>) : {}) };
   p.days = Array.isArray(p.days) ? p.days.filter((d) => typeof d === "string") : [];
-  p.history = Array.isArray(p.history) ? p.history.filter((e) => e && typeof e === "object" && typeof e.prompt === "string") : [];
+  p.history = fitHistory(
+    Array.isArray(p.history) ? p.history.filter((e) => e && typeof e === "object" && typeof e.prompt === "string") : [],
+  );
   p.exams = Array.isArray(p.exams) ? p.exams.filter((e) => e && typeof e === "object") : [];
   p.badges = Array.isArray(p.badges) ? p.badges.filter((b) => typeof b === "string") : [];
   p.levels = p.levels && typeof p.levels === "object" && !Array.isArray(p.levels) ? p.levels : {};
@@ -141,7 +176,7 @@ export function recordRound(prev: Progress, entries: NewEntry[], opts: { perfect
   const s = streak(p.days);
   const bonus = firstToday ? dailyBonus(s) : 0;
   const now = Date.now();
-  p.history = [...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t, level }))].slice(-MAX_HISTORY);
+  p.history = fitHistory([...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t, level }))]);
   p.points += entries.reduce((sum, e) => sum + e.points, 0) + bonus;
   p.bestStreak = Math.max(p.bestStreak, s, longestStreak(p.days));
   const earned = newBadges(p, { perfectRound: opts.perfect });
@@ -161,9 +196,7 @@ export function recordExam(prev: Progress, level: number, entries: NewEntry[]): 
   const passed = score >= EXAM_PASS;
   const bonus = passed ? GRADUATION_BONUS : 0;
   const now = Date.now();
-  p.history = [...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t, level, exam: true }))].slice(
-    -MAX_HISTORY,
-  );
+  p.history = fitHistory([...p.history, ...entries.map((e, i) => ({ ...e, ts: now + i, date: t, level, exam: true }))]);
   p.points += entries.reduce((sum, e) => sum + e.points, 0) + bonus;
   p.exams = [...p.exams, { level, date: t, score: Math.round(score * 100), passed }];
   if (passed && p.level === level && level < 10) p.level = level + 1;

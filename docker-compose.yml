@@ -14,3 +14,8 @@ services:
     volumes:
       - ./data:/app/.data # progress, exams, chats (per user JSON files)
       - ./google-key.json:/run/secrets/google-key.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m" # rotate logs: at most 5 × 10 MB kept
+        max-file: "5"

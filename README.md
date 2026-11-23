@@ -88,6 +88,19 @@ tailscale funnel --https=443 off    # take the site offline
 
 **Family photos:** add pictures to the Google Drive folder **Fotos para Mamá**. They appear within about 5 minutes, and her home page shows a "new photos" card.
 
+## Family photos from an iPhone
+
+Photos come from two places, shown together newest first:
+
+- **iCloud Shared Album "Fotos para Mamá"** (set to *Anyone with the Link*). On the iPhone: select photos →
+  Share → Add to Shared Album → Fotos para Mamá. They appear on the site within about 2 minutes. Set
+  `ICLOUD_ALBUM_URL` in `.env.production`. This reads the album the way Apple's public album page does
+  (not an official Apple API); if Apple changes it, `docker logs espanol-diario | grep icloud` shows errors
+  and the Drive photos keep working.
+- **Google Drive folder** (`GOOGLE_DRIVE_FOLDER_ID`), as before.
+
+Anyone with the album link can view it and add photos, so only share the link with family.
+
 ## Backups
 
 - **On the server, nightly at 3:30:** `ops/backup.sh` (cron) archives `~/espanol-diario/data` to

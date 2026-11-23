@@ -1,7 +1,7 @@
 import "server-only";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const SESSION_COOKIE = "sd_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 60; // stay logged in for 60 days
@@ -33,6 +33,16 @@ function safeEqual(a: string, b: string): boolean {
   return ab.length === bb.length && timingSafeEqual(ab, bb);
 }
 
+/**
+ * Short fingerprint of a user's current password, stored in the session. Changing
+ * the password (or removing the user) in APP_USERS ends that user's open sessions.
+ */
+function passwordVersion(name: string): string | null {
+  const pw = configuredUsers().get(name.trim().toLowerCase());
+  if (pw === undefined) return null;
+  return createHmac("sha256", secretKey()).update(`pv:${pw}`).digest("base64url").slice(0, 16);
+}
+
 /** Returns the canonical display name if the credentials are valid. */
 export function checkCredentials(name: string, password: string): string | null {
   const key = name.trim().toLowerCase();
@@ -47,7 +57,7 @@ export function checkCredentials(name: string, password: string): string | null 
 }
 
 export async function createSession(name: string) {
-  const token = await new SignJWT({ name })
+  const token = await new SignJWT({ name, pv: passwordVersion(name) })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE_SECONDS}s`)
@@ -69,7 +79,10 @@ export async function verifyToken(token: string | undefined): Promise<Session | 
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secretKey());
-    return typeof payload.name === "string" ? { name: payload.name } : null;
+    if (typeof payload.name !== "string") return null;
+    const pv = passwordVersion(payload.name);
+    if (!pv || payload.pv !== pv) return null; // user removed or password changed since this login
+    return { name: payload.name };
   } catch {
     return null;
   }

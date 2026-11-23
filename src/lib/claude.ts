@@ -12,7 +12,7 @@ const MODEL = "claude-haiku-5-5";
 
 // The key may be stored as ANTHROPIC_API_KEY or ANTHROPIC_SPANISH_DAILY (the home server uses the latter).
 const apiKey = () => process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_SPANISH_DAILY;
-const client = new Anthropic({ apiKey: apiKey() });
+const client = new Anthropic({ apiKey: apiKey(), timeout: 120_000, maxRetries: 2 }); // never leave her waiting for minutes
 
 // ---------- Schemas (structured outputs) ----------
 

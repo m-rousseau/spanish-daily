@@ -74,11 +74,14 @@ const DATA_DIR = path.join(process.cwd(), ".data");
 const fileBackend: Backend = {
   name: "file",
   async get(key) {
+    let text: string;
     try {
-      return JSON.parse(await fs.readFile(path.join(DATA_DIR, `${encodeURIComponent(key)}.json`), "utf8"));
-    } catch {
-      return null;
+      text = await fs.readFile(path.join(DATA_DIR, `${encodeURIComponent(key)}.json`), "utf8");
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return null; // never saved yet
+      throw err; // unreadable (permissions, disk): an error, not "no data", so nothing overwrites it
     }
+    return JSON.parse(text);
   },
   async set(key, value) {
     await fs.mkdir(DATA_DIR, { recursive: true });
@@ -109,6 +112,25 @@ export async function readDoc(user: string, doc: Doc): Promise<unknown | null> {
   const data = await b.get(userKey(user, doc));
   log("store.read", { backend: b.name, user, doc, found: data !== null, ms: Date.now() - started });
   return data;
+}
+
+const locks = new Map<string, Promise<unknown>>();
+
+/**
+ * Runs fn with exclusive access to one user's document (this server is a single
+ * process), so a read-check-write cannot interleave with another save.
+ */
+export async function withDocLock<R>(user: string, doc: Doc, fn: () => Promise<R>): Promise<R> {
+  const key = userKey(user, doc);
+  const prev = locks.get(key) ?? Promise.resolve();
+  const run = prev.catch(() => {}).then(fn);
+  const tail = run.catch(() => {});
+  locks.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (locks.get(key) === tail) locks.delete(key);
+  }
 }
 
 export async function writeDoc(user: string, doc: Doc, value: unknown): Promise<void> {

@@ -7,3 +7,6 @@ export async function POST() {
   await destroySession();
   return new Response(null, { status: 303, headers: { Location: "/login" } });
 }
+
+// Opening /api/logout directly (bookmark, typed address) logs out too instead of an error page.
+export const GET = POST;

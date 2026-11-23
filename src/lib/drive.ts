@@ -132,7 +132,8 @@ export async function listPhotos(force = false): Promise<Photo[]> {
  */
 export async function photoImage(id: string, size: "thumb" | "large"): Promise<{ body: ArrayBuffer; type: string } | null> {
   let link = cache?.thumbs.get(id);
-  if (!link) {
+  if (!link && Date.now() - (cache?.at ?? 0) > 30_000) {
+    // Maybe a photo added since the last listing; re-list at most every 30 s (unknown ids can't force Drive calls).
     await listPhotos(true);
     link = cache?.thumbs.get(id);
   }
